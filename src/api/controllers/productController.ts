@@ -1,11 +1,17 @@
 import { Request, Response } from "express";
 import { Product } from "../../models/interfaces/product";
-import { getProductListService } from "../../domain/services/productService.ts";
+import {
+  deleteProductByIdService,
+  getProductByIdService,
+  getProductListService,
+  updateProductByIdService,
+} from "../../domain/services/productService.ts";
+import { createProductRepository } from "../../domain/repositories/productRepository";
 
 export const getProductList = async (req: Request, res: Response) => {
   try {
     // call method to get
-    const products: Product[] = await getProductListService(); // await service function
+    const products: any[] = await getProductListService(); // await service function
 
     res.status(200).json({
       message: "List of all indexes retrieved successfully",
@@ -29,15 +35,10 @@ export const getProductById = async (req: Request, res: Response) => {
     }
 
     // call method to get
-    const product: Product | null = {
-      id: "test1",
-      price: 10,
-      name: "NoName",
-      inStock: false,
-    }; // await service function
+    const product: Product | null = await getProductByIdService(id);
 
     res.status(200).json({
-      message: "List of all indexes retrieved successfully",
+      message: "Product found.",
       data: product,
     });
   } catch (error) {
@@ -55,18 +56,53 @@ export const createProduct = async (req: Request, res: Response) => {
   // ex: const { productName } = req.body
 
   try {
-    // call method to create
-    const response: Product = {
-      id: "test1",
-      price: 10,
-      name: "NoName",
-      inStock: false,
-    }; // await createFunction
+    const response: any = await createProductRepository(productDto);
+
+    const log = 1 + 1;
+    console.log(log);
 
     res.status(201).json(response);
   } catch (error) {
     res.status(500).json({
       error: "Failed to create a new product",
+      details: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+export const deleteProductById = async (req: Request, res: Response) => {
+  const id = req.params.id;
+
+  try {
+    if (!id) {
+      throw new Error("Product ID was not provided in request.");
+    }
+
+    const productDeleted: boolean = await deleteProductByIdService(id);
+
+    res.status(200).json({
+      message: `Product ${productDeleted ? "deleted" : "not deleted"}.`,
+      data: productDeleted,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: `Failed to delete product with ID ${id}.`,
+      details: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+export const updateProduct = async (req: Request, res: Response) => {
+  const id = req.params.id;
+  const partialProductDto = req.body;
+
+  try {
+    const response: any = await updateProductByIdService(id, partialProductDto);
+
+    res.status(201).json(response);
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to update the product",
       details: error instanceof Error ? error.message : error,
     });
   }
