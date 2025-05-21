@@ -1,7 +1,7 @@
 import { MongoClient, Db } from "mongodb";
 
-const uri = process.env.MONGO_URI || "mongodb+srv://replace-with-username:replace-with-password@test-cluster-connection.r57kqfb.mongodb.net/?retryWrites=true&w=majority&appName=test-cluster-connection";
-const databasebName = process.env.DATABASE_NAME || "project-database";
+const uri = process.env.MONGO_URI || "mongodb+srv://andreistrava:651Rp5nx5vlipFWI@licenta-cluster.icbxa5c.mongodb.net/?retryWrites=true&w=majority&appName=licenta-cluster";
+const databasebName = process.env.DB_NAME || "licenta_database";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
