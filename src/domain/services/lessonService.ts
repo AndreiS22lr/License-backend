@@ -1,49 +1,73 @@
-import {
-  createLesson as createLessonRepository,
-  deleteLessonById as deleteLessonByIdRepository,
-  getLessonById as getLessonByIdRepository,
-  getLessonList as getLessonListRepository,
-  updateLesson as updateLessonRepository,
-} from "../repositories/lessonRepository"; // Importă funcțiile din repository
-import { Lesson } from "../../models/interfaces/lesson"; // Importă interfața Lesson
+// src/domain/services/lessonService.ts
 
-// Funcție de creare a unei lecții
+import { Lesson } from "../../models/interfaces/lesson";
+import * as lessonRepository from "../repositories/lessonRepository"; // Importăm toate funcțiile din lessonRepository
+
 export const createLessonService = async (
-  lessonData: Omit<Lesson, "id" | "createdAt" | "updatedAt"> // 'id' este omis, va fi generat de DB
+  // NOU: Excludem 'quizzes' și de la creare, deoarece ele sunt populate, nu create direct
+  lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes'>
 ): Promise<Lesson> => {
-  // Aici ai putea adăuga logica de business înainte de a salva în DB
-  // De exemplu: validări suplimentare, procesare de date, generare de slug-uri etc.
-  const newLesson = await createLessonRepository(lessonData);
-  return newLesson;
+  try {
+    const newLesson = await lessonRepository.createLesson(lessonData);
+    return newLesson;
+  } catch (error) {
+    console.error("SERVICE ERROR: Eroare la crearea lecției:", error);
+    throw new Error("A eșuat crearea lecției.");
+  }
 };
 
-// Funcție pentru a obține toate lecțiile
 export const getLessonListService = async (): Promise<Lesson[]> => {
-  // Poți adăuga aici logică de business, cum ar fi filtrare bazată pe user permissions etc.
-  const lessons = await getLessonListRepository();
-  return lessons;
+  try {
+    // Repository-ul returnează deja lecțiile cu quiz-uri populate
+    const lessons = await lessonRepository.getLessonList();
+    return lessons;
+  } catch (error) {
+    console.error("SERVICE ERROR: Eroare la obținerea listei de lecții:", error);
+    throw new Error("A eșuat obținerea listei de lecții.");
+  }
 };
 
-// Funcție pentru a obține o lecție după ID
 export const getLessonByIdService = async (id: string): Promise<Lesson | null> => {
-  // Aici poți adăuga validări pentru 'id' dacă este necesar
-  const lesson = await getLessonByIdRepository(id); // Repository-ul se ocupă de conversia string -> ObjectId
-  return lesson;
+  try {
+    // Repository-ul returnează deja lecția cu quiz-uri populate
+    const lesson = await lessonRepository.getLessonById(id);
+    if (!lesson) {
+      throw new Error(`Lecția cu ID ${id} nu a fost găsită.`);
+    }
+    return lesson;
+  } catch (error) {
+    console.error(`SERVICE ERROR: Eroare la obținerea lecției cu ID ${id}:`, error);
+    throw error;
+  }
 };
 
-// Funcție pentru a actualiza o lecție
 export const updateLessonService = async (
   id: string,
-  partialLesson: Partial<Lesson>
+  // NOU: Excludem 'quizzes' din partialLesson, deoarece nu se actualizează direct prin acest DTO
+  partialLesson: Partial<Omit<Lesson, 'quizzes'>>
 ): Promise<Lesson | null> => {
-  // Aici poți adăuga validări sau transformări pentru partialLesson
-  const updatedLesson = await updateLessonRepository(id, partialLesson); // Repository-ul se ocupă de conversia string -> ObjectId
-  return updatedLesson;
+  try {
+    // Repository-ul returnează deja lecția cu quiz-uri populate după actualizare
+    const updatedLesson = await lessonRepository.updateLesson(id, partialLesson);
+    if (!updatedLesson) {
+      throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.`);
+    }
+    return updatedLesson;
+  } catch (error) {
+    console.error(`SERVICE ERROR: Eroare la actualizarea lecției cu ID ${id}:`, error);
+    throw error;
+  }
 };
 
-// Funcție pentru a șterge o lecție după ID
 export const deleteLessonByIdService = async (id: string): Promise<boolean> => {
-  // Aici poți adăuga logică de business înainte de ștergere (ex: verifică permisiuni)
-  const isDeleted = await deleteLessonByIdRepository(id); // Repository-ul se ocupă de conversia string -> ObjectId
-  return isDeleted;
+  try {
+    const deleted = await lessonRepository.deleteLessonById(id);
+    if (!deleted) {
+      throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi ștearsă.`);
+    }
+    return deleted;
+  } catch (error) {
+      console.error(`SERVICE ERROR: Eroare la ștergerea lecției cu ID ${id}:`, error);
+      throw error;
+  }
 };
