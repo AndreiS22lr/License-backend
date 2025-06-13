@@ -1,22 +1,53 @@
-// src/api/controllers/lessonController.ts
-
 import { Request, Response } from "express";
 import {
     createLessonService,
-    deleteLessonByIdService,
+    deleteLessonService,
     getLessonByIdService,
     getLessonListService,
     updateLessonService,
-    uploadLessonAudioService, // Acest import rămâne, folosit pentru ruta de upload audio separată
+    uploadLessonAudioService,
 } from "../../domain/services/lessonService";
-import { Lesson } from "../../models/interfaces/lesson"; // Importă interfața Lesson
-import multer from 'multer'; // Importă Multer pentru a gestiona erorile specifice
+import { Lesson } from "../../models/interfaces/lesson";
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 
-// Controller pentru a obține lista de lecții
-export const getLessonList = async (req: Request, res: Response) => {
+// --- CORECTIE CHEIE AICI: Directorul de bază pentru operațiile de fișiere ---
+// Acesta trebuie să corespundă cu `UPLOADS_BASE_DIR` din `app.ts` și cu `UPLOADS_ROOT_DIR` din `lessonRoutes.ts`
+// care este 'your-project/uploads' (rădăcina proiectului)
+// `__dirname` în `src/api/controllers/` este 'your-project/src/api/controllers/'
+// '..', '..' te duce la 'your-project/src/'
+// '..', '..', '..' te duce la 'your-project/' (rădăcina proiectului)
+// Apoi, adăugăm 'uploads'.
+const UPLOADS_BASE_DIR = path.join(__dirname, '..', '..', '..', 'uploads'); // <-- MODIFICAT AICI
+
+// --- MODIFICAT: Funcția ajutătoare pentru a șterge un fișier existent de pe disc ---
+const deleteFileIfExists = (relativePath: string | undefined) => {
+    if (relativePath) {
+        // Calea relativă vine din DB (ex: '/uploads/lessons/imagine.jpg')
+        // Trebuie să extragem partea 'lessons/imagine.jpg' pentru a o alătura la UPLOADS_BASE_DIR
+        const pathRelativeToUploads = relativePath.startsWith('/uploads/') ? relativePath.substring('/uploads/'.length) : relativePath;
+
+        // Construim calea absolută pe disc
+        const absolutePath = path.join(UPLOADS_BASE_DIR, pathRelativeToUploads);
+
+        fs.unlink(absolutePath, (err) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.warn(`Attempted to delete non-existent file: ${absolutePath}`);
+                } else {
+                    console.error(`Error deleting file ${absolutePath}:`, err);
+                }
+            } else {
+                console.log(`Successfully deleted old file: ${absolutePath}`);
+            }
+        });
+    }
+};
+
+export const getLessonList = async (req: Request, res: Response): Promise<void> => {
     try {
         const lessons: Lesson[] = await getLessonListService();
-
         res.status(200).json({
             message: "Lista de lecții recuperată cu succes.",
             data: lessons,
@@ -30,18 +61,19 @@ export const getLessonList = async (req: Request, res: Response) => {
     }
 };
 
-// Controller pentru a obține o lecție după ID
-export const getLessonById = async (req: Request, res: Response) => {
+export const getLessonById = async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
     try {
         if (!id) {
-            throw new Error("ID-ul lecției nu a fost furnizat în cerere.");
+            res.status(400).json({ message: "ID-ul lecției nu a fost furnizat în cerere." });
+            return;
         }
 
         const lesson: Lesson | null = await getLessonByIdService(id);
 
         if (!lesson) {
-            throw new Error(`Lecția cu ID ${id} nu a fost găsită.`);
+            res.status(404).json({ message: `Lecția cu ID ${id} nu a fost găsită.` });
+            return;
         }
 
         res.status(200).json({
@@ -50,7 +82,7 @@ export const getLessonById = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error(`Eroare la obținerea lecției cu ID ${id}:`, error);
-        const statusCode = error instanceof Error && error.message.includes("nu a fost găsită") ? 404 : 500;
+        const statusCode = (error instanceof Error && error.message.includes("ID-ul lecției nu este valid")) ? 400 : 500;
         res.status(statusCode).json({
             error: `A eșuat obținerea lecției cu ID ${id}.`,
             details: error instanceof Error ? error.message : error,
@@ -58,34 +90,24 @@ export const getLessonById = async (req: Request, res: Response) => {
     }
 };
 
-// Controller pentru a crea o nouă lecție (acum gestionează și fișiere)
-export const createLesson = async (req: Request, res: Response) => {
+export const createLesson = async (req: Request, res: Response): Promise<void> => {
     try {
-        // req.body conține câmpurile text (title, order, theoryContent)
         const { title, order, theoryContent } = req.body;
-
-        // req.files va conține informații despre fișierele încărcate de multer.fields()
-        // Facem un cast pentru a lucra mai ușor cu tipurile TypeScript
-        const files = req.files as {
-            [fieldname: string]: Express.Multer.File[]
-        };
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         const sheetMusicImageFile = files['sheetMusicImage'] ? files['sheetMusicImage'][0] : undefined;
         const audioLessonFile = files['audioFile'] ? files['audioFile'][0] : undefined;
 
-        // Construim căile relative pentru stocare în baza de date
-        // ATENȚIE: Calea este acum '/uploads/lessons/' (din cauza configurării multer în lessonRoutes.ts)
+        // Calea salvată în DB trebuie să includă "lessons/"
         const sheetMusicImageUrl = sheetMusicImageFile ? `/uploads/lessons/${sheetMusicImageFile.filename}` : undefined;
         const audioUrl = audioLessonFile ? `/uploads/lessons/${audioLessonFile.filename}` : undefined;
 
-        // Creează obiectul lessonData, incluzând URL-urile fișierelor
         const lessonData = {
             title,
-            order: parseInt(order as string), // Asigură-te că order este un număr
+            order: parseInt(order as string),
             theoryContent,
-            sheetMusicImageUrl, // Acum trimitem și URL-ul imaginii
-            audioUrl,           // Și URL-ul audio-ului lecției
-            // quizIds vor fi adăugate separat dacă e cazul sau în logică ulterioară
+            sheetMusicImageUrl,
+            audioUrl,
         };
 
         const newLesson: Lesson = await createLessonService(lessonData);
@@ -94,10 +116,8 @@ export const createLesson = async (req: Request, res: Response) => {
             message: "Lecție creată cu succes.",
             data: newLesson,
         });
-
     } catch (error) {
         console.error("CONTROLLER ERROR: Eroare la crearea lecției:", error);
-        // Gestionăm erorile de Multer specific, dacă apar la încărcare
         if (error instanceof multer.MulterError) {
             res.status(400).json({ message: `Eroare la încărcarea fișierului: ${error.message}` });
         } else {
@@ -109,61 +129,132 @@ export const createLesson = async (req: Request, res: Response) => {
     }
 };
 
-// Controller pentru a actualiza o lecție existentă
-export const updateLesson = async (req: Request, res: Response) => {
+export const updateLesson = async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
-    const partialLessonData = req.body;
+    const { title, order, theoryContent, quizIds } = req.body;
+
     try {
         if (!id) {
-            throw new Error("ID-ul lecției nu a fost furnizat în cerere.");
+            res.status(400).json({ message: "ID-ul lecției nu a fost furnizat în cerere." });
+            return;
         }
 
-        const updatedLesson: Lesson | null = await updateLessonService(id, partialLessonData);
+        const existingLesson = await getLessonByIdService(id);
+        if (!existingLesson) {
+            res.status(404).json({ message: `Lecția cu ID ${id} nu a fost găsită.` });
+            return;
+        }
 
-        console.log("CONTROLLER - Valoarea lui updatedLesson după service:", updatedLesson);
-        console.log("CONTROLLER - Este updatedLesson null?", updatedLesson === null);
-        console.log("CONTROLLER - Este updatedLesson undefined?", updatedLesson === undefined);
-        console.log("CONTROLLER - Este updatedLesson un obiect?", typeof updatedLesson === 'object' && updatedLesson !== null);
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const updatedData: Partial<Lesson> = {
+            title,
+            order: order !== undefined ? parseInt(order as string) : existingLesson.order,
+            theoryContent,
+        };
 
-        if (!updatedLesson) {
-            throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.`);
+        if (quizIds !== undefined) {
+            try {
+                if (typeof quizIds === 'string' && quizIds.trim() !== '') {
+                    updatedData.quizIds = JSON.parse(quizIds);
+                } else if (Array.isArray(quizIds)) {
+                    updatedData.quizIds = quizIds;
+                } else if (quizIds === null || quizIds === '') {
+                    updatedData.quizIds = [];
+                }
+            } catch (jsonError) {
+                console.warn(`Could not parse quizIds: ${quizIds}. Using existing quizIds. Error: ${jsonError}`);
+                updatedData.quizIds = existingLesson.quizIds;
+            }
+        } else {
+            updatedData.quizIds = existingLesson.quizIds;
+        }
+
+        const newSheetMusicImageFile = files['sheetMusicImage'] ? files['sheetMusicImage'][0] : undefined;
+        if (newSheetMusicImageFile) {
+            deleteFileIfExists(existingLesson.sheetMusicImageUrl);
+            updatedData.sheetMusicImageUrl = `/uploads/lessons/${newSheetMusicImageFile.filename}`;
+        } else if (req.body.sheetMusicImageUrl === '' || req.body.sheetMusicImageUrl === 'null') {
+            deleteFileIfExists(existingLesson.sheetMusicImageUrl);
+            updatedData.sheetMusicImageUrl = undefined;
+        } else if (existingLesson.sheetMusicImageUrl && req.body.sheetMusicImageUrl === undefined) {
+            updatedData.sheetMusicImageUrl = existingLesson.sheetMusicImageUrl;
+        } else {
+            updatedData.sheetMusicImageUrl = undefined;
+        }
+
+
+        const newAudioLessonFile = files['audioFile'] ? files['audioFile'][0] : undefined;
+        if (newAudioLessonFile) {
+            deleteFileIfExists(existingLesson.audioUrl);
+            updatedData.audioUrl = `/uploads/lessons/${newAudioLessonFile.filename}`;
+        } else if (req.body.audioUrl === '' || req.body.audioUrl === 'null') {
+            deleteFileIfExists(existingLesson.audioUrl);
+            updatedData.audioUrl = undefined;
+        } else if (existingLesson.audioUrl && req.body.audioUrl === undefined) {
+            updatedData.audioUrl = existingLesson.audioUrl;
+        } else {
+            updatedData.audioUrl = undefined;
+        }
+
+        const updatedLessonResult: Lesson | null = await updateLessonService(id, updatedData);
+
+        if (!updatedLessonResult) {
+            res.status(404).json({ message: `Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.` });
+            return;
         }
 
         res.status(200).json({
             message: "Lecție actualizată cu succes.",
-            data: updatedLesson,
+            data: updatedLessonResult,
         });
+
     } catch (error) {
         console.error(`Eroare la actualizarea lecției cu ID ${id}:`, error);
-        const statusCode = error instanceof Error && error.message.includes("nu a fost găsită") ? 404 : 500;
-        res.status(statusCode).json({
-            error: `A eșuat actualizarea lecției cu ID ${id}.`,
-            details: error instanceof Error ? error.message : error,
-        });
+        if (error instanceof multer.MulterError) {
+            res.status(400).json({ message: `Eroare la încărcarea fișierului: ${error.message}` });
+        } else if (error instanceof Error && error.message.includes("ID-ul lecției nu este valid")) {
+            res.status(400).json({ message: `Eroare: ID-ul lecției nu este valid.` });
+        } else {
+            res.status(500).json({
+                error: `A eșuat actualizarea lecției cu ID ${id}.`,
+                details: error instanceof Error ? error.message : error,
+            });
+        }
     }
 };
 
-// Controller pentru a șterge o lecție
-export const deleteLessonById = async (req: Request, res: Response) => {
+export const deleteLessonById = async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
     try {
         if (!id) {
-            throw new Error("ID-ul lecției nu a fost furnizat în cerere.");
+            res.status(400).json({ message: "ID-ul lecției nu a fost furnizat în cerere." });
+            return;
         }
 
-        const isDeleted: boolean = await deleteLessonByIdService(id);
+        const lessonToDelete = await getLessonByIdService(id);
+        if (!lessonToDelete) {
+            res.status(404).json({ message: `Lecția cu ID ${id} nu a fost găsită.` });
+            return;
+        }
+
+        const isDeleted: boolean = await deleteLessonService(id);
 
         if (!isDeleted) {
-            throw new Error(`Lecția cu ID ${id} nu a putut fi ștearsă sau nu a fost găsită.`);
+            res.status(500).json({ message: `Lecția cu ID ${id} nu a putut fi ștearsă din baza de date.` });
+            return;
         }
 
+        deleteFileIfExists(lessonToDelete.sheetMusicImageUrl);
+        deleteFileIfExists(lessonToDelete.audioUrl);
+
         res.status(200).json({
-            message: "Lecție ștearsă cu succes.",
+            message: "Lecție ștearsă cu succes, inclusiv fișierele asociate.",
             data: true,
         });
     } catch (error) {
         console.error(`Eroare la ștergerea lecției cu ID ${id}:`, error);
-        const statusCode = error instanceof Error && error.message.includes("nu a putut fi ștearsă sau nu a fost găsită") ? 404 : 500;
+        const statusCode = (error instanceof Error && error.message.includes("nu a fost găsită")) ? 404 :
+            (error instanceof Error && error.message.includes("ID-ul lecției nu este valid")) ? 400 : 500;
         res.status(statusCode).json({
             error: `A eșuat ștergerea lecției cu ID ${id}.`,
             details: error instanceof Error ? error.message : error,
@@ -171,28 +262,23 @@ export const deleteLessonById = async (req: Request, res: Response) => {
     }
 };
 
-
-// Controller pentru upload audio (pentru ruta separată, ex. înregistrări utilizator sau update-uri)
 export const uploadLessonAudio = async (req: Request, res: Response): Promise<void> => {
     try {
-        // Multer procesează fișierul și îl pune pe req.file
         if (!req.file) {
             res.status(400).json({ message: 'Niciun fișier audio nu a fost încărcat sau tipul fișierului este nepermis.' });
             return;
         }
 
-        const lessonId = req.params.id; // Obține ID-ul lecției din URL
-        // ATENȚIE: req.file.path este calea absolută pe disc.
-        // Pentru a salva în DB, vrem calea relativă publică (ex: /uploads/audio_recordings/nume_fisier.mp3)
-        // Deci trebuie să ajustăm aici, bazându-ne pe cum e configurat `uploadAudio` în `multerConfig.ts`
-        const audioPath = `/uploads/audio_recordings/${req.file.filename}`; // Calea publică pentru fișierul audio al userului
+        const lessonId = req.params.id;
+        // ATENTIE: Aceasta cale este pentru audio-urile ÎNCĂRCATE DE UTILIZATOR (ex: înregistrări)
+        // care se presupune că merg într-un folder 'audio_recordings', nu 'lessons'.
+        const audioPath = `/uploads/audio_recordings/${req.file.filename}`;
 
         if (!lessonId) {
             res.status(400).json({ message: 'ID-ul lecției nu a fost furnizat.' });
             return;
         }
 
-        // Apelează service-ul pentru a actualiza calea audio
         const updatedLesson = await uploadLessonAudioService(lessonId, audioPath);
 
         if (!updatedLesson) {
@@ -202,8 +288,8 @@ export const uploadLessonAudio = async (req: Request, res: Response): Promise<vo
 
         res.status(200).json({
             message: 'Înregistrare audio încărcată cu succes!',
-            audioUrl: audioPath, // Calea relativă a fișierului pe server
-            lesson: updatedLesson // Lecția actualizată returnată de service
+            audioUrl: audioPath,
+            lesson: updatedLesson
         });
 
     } catch (error) {

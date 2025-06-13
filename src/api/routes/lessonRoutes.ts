@@ -7,50 +7,55 @@ import {
     getLessonById,
     getLessonList,
     updateLesson,
-    uploadLessonAudio, // Aceasta este pentru audio-ul utilizatorilor sau actualizări separate
+    uploadLessonAudio,
 } from "../controllers/lessonController";
 
 import { authenticate, authorizeAdmin } from '../../core/middlewares/authMiddleware';
-// NU mai importăm `uploadAudio` din `multerConfig` aici pentru ruta de creare,
-// deoarece are un filtru specific doar pentru audio.
-// import uploadAudio from '../../core/config/multerConfig'; 
 
-import multer from 'multer'; // Importă multer
-import path from 'path';     // Importă path
-import fs from 'fs';         // Importă fs pentru a crea directorul
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
 
-// --- NOU: Configurare Multer specifică pentru fișierele lecției (imagine + audio) ---
-// Directorul unde vor fi stocate fișierele pentru lecții (imagini și audio)
-const LESSON_UPLOADS_DIR = path.join(__dirname, '../../uploads/lessons'); // Ajustează calea la rădăcina proiectului backend
+// Definește directorul de bază unde Multer va salva fișierele uploadate.
+// Aceasta este 'your-project/uploads' (rădăcina proiectului)
+const UPLOADS_ROOT_DIR = path.join(__dirname, '..', '..', '..', 'uploads');
 
-// Creează directorul 'uploads/lessons' dacă nu există
-if (!fs.existsSync(LESSON_UPLOADS_DIR)) {
-    fs.mkdirSync(LESSON_UPLOADS_DIR, { recursive: true });
-    console.log(`Directorul 'uploads/lessons' a fost creat la: ${LESSON_UPLOADS_DIR}`);
+// --- NOU: Definește directorul specific pentru lecții în cadrul UPLOADS_ROOT_DIR ---
+// Acest director va fi C:\!Facultate\Licenta\License-backend\uploads\lessons
+const LESSONS_SPECIFIC_DIR = path.join(UPLOADS_ROOT_DIR, 'lessons'); // <-- NOU
+
+// Creează directorul de bază 'uploads' (în rădăcina proiectului) dacă nu există
+if (!fs.existsSync(UPLOADS_ROOT_DIR)) {
+    fs.mkdirSync(UPLOADS_ROOT_DIR, { recursive: true });
+    console.log(`Directorul de bază 'uploads' a fost creat la: ${UPLOADS_ROOT_DIR}`);
+}
+
+// --- NOU: Creează directorul specific 'lessons' în cadrul 'uploads' dacă nu există ---
+if (!fs.existsSync(LESSONS_SPECIFIC_DIR)) {
+    fs.mkdirSync(LESSONS_SPECIFIC_DIR, { recursive: true });
+    console.log(`Directorul specific 'uploads/lessons' a fost creat la: ${LESSONS_SPECIFIC_DIR}`);
 }
 
 const lessonStorage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, LESSON_UPLOADS_DIR); // Fișierele lecției vor fi salvate aici
+        // Multer va salva fișierele în directorul specific 'lessons'
+        cb(null, LESSONS_SPECIFIC_DIR); // <-- MODIFICAT AICI: Salvează direct în 'lessons'
     },
     filename: function (req, file, cb) {
-        // Generează un nume de fișier unic bazat pe fieldname (image/audio)
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+        // Aici generezi doar numele fișierului, fără prefixul 'lessons/'
+        // deoarece destinația este deja 'lessons'
+        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`); // <-- MODIFICAT AICI
     }
 });
 
-// Instanța Multer pentru upload-uri de lecții (care poate gestiona multiple tipuri de fișiere)
 const uploadLessons = multer({
     storage: lessonStorage,
     limits: {
-        fileSize: 20 * 1024 * 1024 // Limită dimensiune fișier: 20 MB (poți ajusta)
+        fileSize: 20 * 1024 * 1024 // Limită dimensiune fișier: 20 MB
     },
-    // Nu mai este nevoie de fileFilter aici, deoarece acceptăm mai multe tipuri de fișiere
-    // Poți adăuga un filtru mai general dacă vrei să limitezi la imagini și audio
 });
-
 
 // Rute Publice (nu necesită autentificare)
 router.get("/", getLessonList);
@@ -60,24 +65,31 @@ router.get("/:id", getLessonById);
 router.post("/create",
     authenticate,
     authorizeAdmin,
-    // Folosim noua instanță `uploadLessons` și `fields` pentru ambele fișiere
     uploadLessons.fields([
-        { name: 'sheetMusicImage', maxCount: 1 }, // Câmpul pentru imagine
-        { name: 'audioFile', maxCount: 1 }        // Câmpul pentru audio
+        { name: 'sheetMusicImage', maxCount: 1 },
+        { name: 'audioFile', maxCount: 1 }
     ]),
-    createLesson // Controller-ul care va primi acum și fișierele
+    createLesson
 );
 
-router.put("/update/:id", authenticate, authorizeAdmin, updateLesson);
-router.delete("/delete/:id", authenticate, authorizeAdmin, deleteLessonById);
+router.put("/:id",
+    authenticate,
+    authorizeAdmin,
+    uploadLessons.fields([
+        { name: 'sheetMusicImage', maxCount: 1 },
+        { name: 'audioFile', maxCount: 1 }
+    ]),
+    updateLesson
+);
 
-// IMPORTANT: Ruta existentă pentru upload audio (probabil pentru înregistrări utilizator)
-// va folosi în continuare `uploadAudio` din `multerConfig.ts`
-// Presupunând că `uploadAudio` este importat corect din `multerConfig.ts`
-// Te rog să re-importezi `uploadAudio` dacă ai șters-o anterior.
-import uploadAudio from '../../core/config/multerConfig'; // Re-importă uploadAudio
+router.delete("/:id",
+    authenticate,
+    authorizeAdmin,
+    deleteLessonById
+);
+
+import uploadAudio from '../../core/config/multerConfig';
 
 router.post("/:id/upload-audio", authenticate, authorizeAdmin, uploadAudio.single('audioFile'), uploadLessonAudio);
-
 
 export default router;

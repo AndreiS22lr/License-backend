@@ -4,10 +4,6 @@ import { Lesson } from "../../models/interfaces/lesson";
 import * as lessonRepository from "../repositories/lessonRepository"; // Importăm toate funcțiile din lessonRepository
 
 export const createLessonService = async (
-    // Acum includem 'sheetMusicImageUrl' și 'audioUrl' în tipul primit,
-    // deoarece controller-ul le va trimite.
-    // Excludem 'id', 'createdAt', 'updatedAt', 'quizzes', 'quizIds'
-    // deoarece acestea sunt gestionate de backend/repository.
     lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes' | 'quizIds'>
 ): Promise<Lesson> => {
     try {
@@ -21,7 +17,6 @@ export const createLessonService = async (
 
 export const getLessonListService = async (): Promise<Lesson[]> => {
     try {
-        // Repository-ul returnează deja lecțiile cu quiz-uri populate
         const lessons = await lessonRepository.getLessonList();
         return lessons;
     } catch (error) {
@@ -32,7 +27,6 @@ export const getLessonListService = async (): Promise<Lesson[]> => {
 
 export const getLessonByIdService = async (id: string): Promise<Lesson | null> => {
     try {
-        // Repository-ul returnează deja lecția cu quiz-uri populate
         const lesson = await lessonRepository.getLessonById(id);
         if (!lesson) {
             throw new Error(`Lecția cu ID ${id} nu a fost găsită.`);
@@ -46,11 +40,9 @@ export const getLessonByIdService = async (id: string): Promise<Lesson | null> =
 
 export const updateLessonService = async (
     id: string,
-    // Excludem 'quizzes' din partialLesson, deoarece nu se actualizează direct prin acest DTO
     partialLesson: Partial<Omit<Lesson, 'quizzes'>>
 ): Promise<Lesson | null> => {
     try {
-        // Repository-ul returnează deja lecția cu quiz-uri populate după actualizare
         const updatedLesson = await lessonRepository.updateLesson(id, partialLesson);
         if (!updatedLesson) {
             throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.`);
@@ -62,9 +54,12 @@ export const updateLessonService = async (
     }
 };
 
-export const deleteLessonByIdService = async (id: string): Promise<boolean> => {
+// --- MODIFICAT: Numele funcției de la deleteLessonByIdService la deleteLessonService ---
+export const deleteLessonService = async (id: string): Promise<boolean> => {
     try {
-        const deleted = await lessonRepository.deleteLessonById(id);
+        // Asigură-te că și în lessonRepository.ts, funcția se numește deleteLessonById sau cum e importată.
+        // Dacă lessonRepository.ts exportă 'deleteLessonById', atunci apelul aici ar trebui să rămână 'lessonRepository.deleteLessonById(id)'
+        const deleted = await lessonRepository.deleteLessonById(id); 
         if (!deleted) {
             throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi ștearsă.`);
         }
@@ -75,17 +70,12 @@ export const deleteLessonByIdService = async (id: string): Promise<boolean> => {
     }
 };
 
-// Funcția pentru a actualiza doar calea audio a unei lecții (folosită pentru ruta separată)
 export const uploadLessonAudioService = async (lessonId: string, audioPath: string): Promise<Lesson | null> => {
     try {
-        // Apelează direct funcția din repository
         const updatedLesson = await lessonRepository.updateLessonAudio(lessonId, audioPath);
         return updatedLesson;
     } catch (error) {
         console.error(`SERVICE ERROR: Eroare la upload audio pentru lecția cu ID ${lessonId}:`, error);
-        throw error; // Propagă eroarea mai departe
+        throw error;
     }
 };
-
-// Nu mai este necesară funcția uploadLessonImageService, deoarece imaginea este acum
-// gestionată la crearea lecției prin createLessonService.
