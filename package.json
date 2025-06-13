@@ -6,9 +6,10 @@
   "author": "Strava Andrei",
   "license": "MIT",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.2",
     "@types/mongodb": "^4.0.7",
-    "@types/multer": "^1.4.12",
+    "@types/multer": "^1.4.13",
     "@types/node": "^22.15.21",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
@@ -24,9 +25,14 @@
     "lint": "eslint 'src/**/*.ts'"
   },
   "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
+    "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.16.0",
-    "multer": "^2.0.0",
+    "multer": "^2.0.1",
     "nodemon": "^3.1.10"
   },
   "packageManager": "yarn@4.8.1+sha512.bc946f2a022d7a1a38adfc15b36a66a3807a67629789496c3714dd1703d2e6c6b1c69ff9ec3b43141ac7a1dd853b7685638eb0074300386a59c18df351ef8ff6"

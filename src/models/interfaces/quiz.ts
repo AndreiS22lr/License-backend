@@ -1,4 +1,4 @@
-// src/models/interfaces/quiz.ts
+
 
 // Interfața pentru o singură întrebare dintr-un quiz
 export interface QuizQuestion {
