@@ -2,15 +2,16 @@
 
 import * as userRecordingRepository from "../repositories/userRecordingRepository";
 import { UserRecording } from "../../models/interfaces/userRecording";
-import { Lesson } from "../../models/interfaces/lesson"; // Pentru a putea popula detalii despre lecție
-import * as lessonRepository from "../repositories/lessonRepository"; // Pentru a obține detalii despre lecție
+import { Lesson } from "../../models/interfaces/lesson";
+import * as lessonRepository from "../repositories/lessonRepository";
 
 /**
- * Salvează o nouă înregistrare a utilizatorului.
+ * Salvează sau actualizează o înregistrare a utilizatorului pentru o lecție specifică.
+ * Aceasta va asigura că există o singură înregistrare per utilizator per lecție.
  * @param userId - ID-ul utilizatorului care face înregistrarea.
  * @param lessonId - ID-ul lecției la care se referă înregistrarea.
  * @param audioUrl - Calea URL către fișierul audio încărcat.
- * @returns Înregistrarea utilizatorului creată.
+ * @returns Înregistrarea utilizatorului creată sau actualizată.
  * @throws Eroare dacă lecția sau utilizatorul nu sunt găsite.
  */
 export const saveUserRecordingService = async (
@@ -18,31 +19,22 @@ export const saveUserRecordingService = async (
     lessonId: string,
     audioUrl: string
 ): Promise<UserRecording> => {
-    console.log(`SERVICE DEBUG (saveUserRecordingService): Începe salvarea înregistrării. userId: ${userId}, lessonId: ${lessonId}, audioUrl: ${audioUrl}`);
+    console.log(`SERVICE DEBUG (saveUserRecordingService): Începe salvarea/actualizarea înregistrării. userId: ${userId}, lessonId: ${lessonId}, audioUrl: ${audioUrl}`);
 
-    // Opțional: Poți adăuga aici o verificare pentru existența utilizatorului
-    // (deși middleware-ul de autentificare ar trebui să asigure că userId este valid).
-
-    // Verifică dacă lecția la care se referă înregistrarea există
     const lesson = await lessonRepository.getLessonById(lessonId);
     if (!lesson) {
         console.error(`SERVICE ERROR (saveUserRecordingService): Lecția cu ID ${lessonId} nu a fost găsită.`);
         throw new Error(`Lecția cu ID ${lessonId} nu a fost găsită pentru a-i asocia înregistrarea audio.`);
     }
 
-    const newRecordingData: Omit<UserRecording, 'id' | 'createdAt' | 'updatedAt'> = {
-        userId,
-        lessonId,
-        audioUrl,
-    };
-
     try {
-        const createdRecording = await userRecordingRepository.createUserRecording(newRecordingData);
-        console.log(`SERVICE DEBUG (saveUserRecordingService): Înregistrare utilizator salvată cu succes: ${createdRecording.id}`);
-        return createdRecording;
+        // NOU: Folosim upsertUserRecording din repository
+        const savedOrUpdatedRecording = await userRecordingRepository.upsertUserRecording(userId, lessonId, audioUrl);
+        console.log(`SERVICE DEBUG (saveUserRecordingService): Înregistrare utilizator salvată/actualizată cu succes: ${savedOrUpdatedRecording.id}`);
+        return savedOrUpdatedRecording;
     } catch (error) {
-        console.error(`SERVICE ERROR (saveUserRecordingService): Eroare la salvarea înregistrării utilizatorului pentru lessonId ${lessonId} și userId ${userId}:`, error);
-        throw new Error("A eșuat salvarea înregistrării utilizatorului.");
+        console.error(`SERVICE ERROR (saveUserRecordingService): Eroare la salvarea/actualizarea înregistrării utilizatorului pentru lessonId ${lessonId} și userId ${userId}:`, error);
+        throw new Error("A eșuat salvarea/actualizarea înregistrării utilizatorului.");
     }
 };
 
@@ -59,10 +51,9 @@ export const getUserRecordingsByUserService = async (userId: string): Promise<(U
 
         const recordingsWithLessonDetails = await Promise.all(recordings.map(async (recording) => {
             const lessonDetails = await lessonRepository.getLessonById(recording.lessonId);
-            // Returnăm înregistrarea cu detalii despre lecție (sau null dacă nu găsim lecția)
             return {
                 ...recording,
-                lessonDetails: lessonDetails || undefined // Adăugăm detalii despre lecție
+                lessonDetails: lessonDetails || undefined
             };
         }));
         return recordingsWithLessonDetails;
@@ -71,6 +62,32 @@ export const getUserRecordingsByUserService = async (userId: string): Promise<(U
         throw new Error("A eșuat obținerea înregistrărilor utilizatorului.");
     }
 };
+
+/**
+ * Obține toate înregistrările unui utilizator pentru o lecție specifică.
+ * @param userId - ID-ul utilizatorului.
+ * @param lessonId - ID-ul lecției.
+ * @returns Un array de înregistrări ale utilizatorului pentru acea lecție, cu detalii despre lecție.
+ */
+export const getUserRecordingsByLessonAndUserService = async (userId: string, lessonId: string): Promise<(UserRecording & { lessonDetails?: Lesson })[]> => {
+    console.log(`SERVICE DEBUG (getUserRecordingsByLessonAndUserService): Caut înregistrări pentru userId: ${userId} și lessonId: ${lessonId}`);
+    try {
+        const recordings = await userRecordingRepository.getUserRecordingsByLessonAndUser(userId, lessonId);
+        console.log(`SERVICE DEBUG (getUserRecordingsByLessonAndUserService): Am găsit ${recordings.length} înregistrări. Populăm detalii lecție...`);
+
+        const lessonDetails = await lessonRepository.getLessonById(lessonId);
+
+        return recordings.map(recording => ({
+            ...recording,
+            lessonDetails: lessonDetails || undefined
+        }));
+
+    } catch (error) {
+        console.error(`SERVICE ERROR (getUserRecordingsByLessonAndUserService): Eroare la obținerea înregistrărilor pentru userId ${userId} și lessonId ${lessonId}:`, error);
+        throw new Error("A eșuat obținerea înregistrărilor utilizatorului pentru lecție.");
+    }
+};
+
 
 /**
  * Șterge o înregistrare a utilizatorului.
@@ -82,7 +99,6 @@ export const getUserRecordingsByUserService = async (userId: string): Promise<(U
 export const deleteUserRecordingService = async (recordingId: string, userId: string): Promise<boolean> => {
     console.log(`SERVICE DEBUG (deleteUserRecordingService): Începe ștergerea înregistrării ${recordingId} de către utilizatorul ${userId}.`);
 
-    // Verificăm dacă înregistrarea există și dacă utilizatorul este proprietarul ei
     const recordingToDelete = await userRecordingRepository.getUserRecordingById(recordingId);
     if (!recordingToDelete) {
         console.warn(`SERVICE WARNING (deleteUserRecordingService): Înregistrarea cu ID ${recordingId} nu a fost găsită.`);
@@ -119,4 +135,3 @@ export const getUserRecordingByIdService = async (recordingId: string): Promise<
         throw new Error("A eșuat obținerea înregistrării.");
     }
 };
-

@@ -4,7 +4,8 @@ import express from 'express';
 import {
     uploadUserRecording,
     getUserRecordingsMe,
-    deleteUserRecording
+    deleteUserRecording,
+    getUserRecordingsForLesson // NOU: Importă funcția lipsă
 } from '../controllers/userRecordingController';
 import { authenticate } from '../../core/middlewares/authMiddleware';
 import uploadAudio from '../../core/config/multerConfig'; // Multer configurat pentru înregistrări audio utilizator
@@ -17,6 +18,14 @@ const router = express.Router();
  * @access Privat (necesită autentificare)
  */
 router.post('/:lessonId', authenticate, uploadAudio.single('audioFile'), uploadUserRecording);
+
+/**
+ * @route GET /api/user-recordings/:lessonId/my-recordings
+ * @desc Obține toate înregistrările audio ale utilizatorului autentificat pentru o lecție specifică.
+ * @access Privat (necesită autentificare)
+ * NOU: Această rută a fost adăugată.
+ */
+router.get('/:lessonId/my-recordings', authenticate, getUserRecordingsForLesson);
 
 /**
  * @route GET /api/user-recordings/me
