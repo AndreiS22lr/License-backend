@@ -22,9 +22,8 @@ const router = express.Router();
 // Aceasta este 'your-project/uploads' (rădăcina proiectului)
 const UPLOADS_ROOT_DIR = path.join(__dirname, '..', '..', '..', 'uploads');
 
-// --- NOU: Definește directorul specific pentru lecții în cadrul UPLOADS_ROOT_DIR ---
-// Acest director va fi C:\!Facultate\Licenta\License-backend\uploads\lessons
-const LESSONS_SPECIFIC_DIR = path.join(UPLOADS_ROOT_DIR, 'lessons'); // <-- NOU
+// Definește directorul specific pentru lecții în cadrul UPLOADS_ROOT_DIR
+const LESSONS_SPECIFIC_DIR = path.join(UPLOADS_ROOT_DIR, 'lessons'); 
 
 // Creează directorul de bază 'uploads' (în rădăcina proiectului) dacă nu există
 if (!fs.existsSync(UPLOADS_ROOT_DIR)) {
@@ -32,7 +31,7 @@ if (!fs.existsSync(UPLOADS_ROOT_DIR)) {
     console.log(`Directorul de bază 'uploads' a fost creat la: ${UPLOADS_ROOT_DIR}`);
 }
 
-// --- NOU: Creează directorul specific 'lessons' în cadrul 'uploads' dacă nu există ---
+// Creează directorul specific 'lessons' în cadrul 'uploads' dacă nu există
 if (!fs.existsSync(LESSONS_SPECIFIC_DIR)) {
     fs.mkdirSync(LESSONS_SPECIFIC_DIR, { recursive: true });
     console.log(`Directorul specific 'uploads/lessons' a fost creat la: ${LESSONS_SPECIFIC_DIR}`);
@@ -40,13 +39,10 @@ if (!fs.existsSync(LESSONS_SPECIFIC_DIR)) {
 
 const lessonStorage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // Multer va salva fișierele în directorul specific 'lessons'
-        cb(null, LESSONS_SPECIFIC_DIR); // <-- MODIFICAT AICI: Salvează direct în 'lessons'
+        cb(null, LESSONS_SPECIFIC_DIR); 
     },
     filename: function (req, file, cb) {
-        // Aici generezi doar numele fișierului, fără prefixul 'lessons/'
-        // deoarece destinația este deja 'lessons'
-        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`); // <-- MODIFICAT AICI
+        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`); 
     }
 });
 
@@ -56,6 +52,7 @@ const uploadLessons = multer({
         fileSize: 20 * 1024 * 1024 // Limită dimensiune fișier: 20 MB
     },
 });
+
 
 // Rute Publice (nu necesită autentificare)
 router.get("/", getLessonList);
@@ -90,6 +87,8 @@ router.delete("/:id",
 
 import uploadAudio from '../../core/config/multerConfig';
 
-router.post("/:id/upload-audio", authenticate, authorizeAdmin, uploadAudio.single('audioFile'), uploadLessonAudio);
+// CORECTAT: RUTA PENTRU ÎNCĂRCĂRILE AUDIO ALE UTILIZATORULUI - ACUM DOAR NECESITĂ AUTENTIFICARE, NU ȘI ROL DE ADMIN
+router.post("/:id/upload-audio", authenticate, uploadAudio.single('audioFile'), uploadLessonAudio); // <-- CRUCIAL: 'authorizeAdmin' ELIMINAT
+
 
 export default router;

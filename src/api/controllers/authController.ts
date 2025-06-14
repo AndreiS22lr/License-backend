@@ -1,13 +1,12 @@
 // src/api/controllers/authController.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, authenticateUser } from '../../domain/services/authService';
-import jwt from 'jsonwebtoken'; // Importăm jsonwebtoken
-import dotenv from 'dotenv'; // Pentru a încărca JWT_SECRET din .env
+import { registerUser, authenticateUser } from '../../domain/services/authService'; 
+import jwt from 'jsonwebtoken'; 
+import dotenv from 'dotenv'; 
 
-dotenv.config(); // Încarcă variabilele de mediu din .env
+dotenv.config(); 
 
-// Asigură-te că JWT_SECRET este definit
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
@@ -22,39 +21,54 @@ if (!JWT_SECRET) {
  * @access Public
  */
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { email, password, role } = req.body; // Poți prelua și rolul dacă vrei să permiți înregistrarea de admini direct
+  const { firstName, lastName, email, password, role } = req.body; // MODIFICAT: Preluăm firstName și lastName din body
 
-  // Validare de bază a input-ului
-  if (!email || !password) {
-    res.status(400).json({ message: 'Email-ul și parola sunt obligatorii.' });
+  // Validare de bază a input-ului (acum include nume și prenume)
+  if (!firstName || !lastName || !email || !password) { 
+    res.status(400).json({ message: 'Toate câmpurile (Nume, Prenume, Email, Parolă) sunt obligatorii.' });
     return;
   }
-  if (typeof email !== 'string' || typeof password !== 'string' || (role && typeof role !== 'string')) {
-      res.status(400).json({ message: 'Tipuri de date invalide pentru email, parolă sau rol.' });
+  if (typeof firstName !== 'string' || typeof lastName !== 'string' || typeof email !== 'string' || typeof password !== 'string' || (role && typeof role !== 'string')) {
+      res.status(400).json({ message: 'Tipuri de date invalide pentru câmpurile de înregistrare.' });
       return;
   }
-  if (password.length < 6) { // O simplă verificare a lungimii minime a parolei
-      res.status(400).json({ message: 'Parola trebuie să aibă cel puțin 6 caractere.' });
+  // MODIFICAT: Lungimea minimă a parolei la 8 caractere pentru o securitate sporită
+  if (password.length < 8) { 
+      res.status(400).json({ message: 'Parola trebuie să aibă cel puțin 8 caractere.' });
       return;
   }
 
   try {
     // Rolul implicit va fi 'user' dacă nu este specificat sau este invalid
-    const userRole = (role === 'admin' && process.env.NODE_ENV === 'development') ? 'admin' : 'user'; // Permite înregistrarea de admini doar în dev, pentru producție se face altfel
-    const newUser = await registerUser(email, password, userRole);
+    // Permitem crearea de admini doar în development, pentru a evita abuzurile în producție
+    const userRole = (role === 'admin' && process.env.NODE_ENV === 'development') ? 'admin' : 'user'; 
+    
+    // MODIFICAT: Apelăm registerUser cu firstName și lastName
+    const newUser = await registerUser(firstName, lastName, email, password, userRole);
 
     if (!newUser) {
-      res.status(409).json({ message: 'Utilizatorul cu acest email există deja.' }); // 409 Conflict
+      res.status(409).json({ message: 'Utilizatorul cu acest email există deja.' }); 
       return;
     }
 
-    // Returnăm utilizatorul creat (fără parolă)
+    // Generează un token JWT pentru noul utilizator și îl trimite automat autentificat
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email, role: newUser.role }, 
+      JWT_SECRET as string, 
+      { expiresIn: '1h' } 
+    );
+
+    // Returnăm utilizatorul creat (fără parolă) și token-ul
     const { password: _, ...userWithoutPassword } = newUser;
-    res.status(201).json({ message: 'Utilizator înregistrat cu succes!', user: userWithoutPassword }); // 201 Created
+    res.status(201).json({ 
+      message: 'Utilizator înregistrat cu succes!', 
+      user: userWithoutPassword,
+      token 
+    }); 
 
   } catch (error) {
     console.error('CONTROLLER ERROR (register):', error);
-    next(error); // Trimite eroarea către un eventual middleware global de erori
+    next(error); 
   }
 };
 
@@ -79,16 +93,15 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     const user = await authenticateUser(email, password);
 
     if (!user) {
-      res.status(401).json({ message: 'Email sau parolă incorectă.' }); // 401 Unauthorized
+      res.status(401).json({ message: 'Email sau parolă incorectă.' }); 
       return;
     }
 
     // Generează un token JWT
-    // Conține payload-ul (datele utilizatorului), secretul și opțiunile (ex: expirare)
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role }, // Payload-ul token-ului
-      JWT_SECRET as string, // Secretul
-      { expiresIn: '1h' } // Token-ul expiră după 1 oră
+      { id: user.id, email: user.email, role: user.role }, 
+      JWT_SECRET as string, 
+      { expiresIn: '1h' } 
     );
 
     // Returnează token-ul și detaliile utilizatorului (fără parolă)
@@ -96,6 +109,6 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 
   } catch (error) {
     console.error('CONTROLLER ERROR (login):', error);
-    next(error); // Trimite eroarea către un eventual middleware global de erori
+    next(error); 
   }
 };

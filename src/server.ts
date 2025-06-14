@@ -2,6 +2,7 @@ import app from "./app";
 import config from "./core/config/config";
 import { connectToMongo } from "./core/database/mongoClient";
 
+
 connectToMongo()
   .then(() => {
     app.listen(config.port, () => {

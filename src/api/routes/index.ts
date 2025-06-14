@@ -5,6 +5,7 @@ import lessonRoutes from "./lessonRoutes";
 import quizRoutes from "./quizRoutes";
 import userCompletedQuizRoutes from './userCompletedQuizRoutes';
 import authRoutes from './authRoutes';
+import userRecordingRoutes from './userRecordingRoutes';
 
 const router = express.Router();
 
@@ -14,4 +15,5 @@ router.use("/lessons", lessonRoutes);
 router.use("/quizzes", quizRoutes);
 router.use('/quiz-results', userCompletedQuizRoutes);
 router.use('/auth', authRoutes);
+router.use('/user-recordings', userRecordingRoutes);
 export default router;

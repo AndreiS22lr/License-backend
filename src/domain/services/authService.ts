@@ -1,16 +1,15 @@
 // src/domain/services/authService.ts
 
-import * as bcrypt from 'bcryptjs'; // Importăm bcryptjs
-import { createUser, findUserByEmail, findUserById } from '../repositories/userRepository'; // Importăm funcțiile din repository
-import { User, UserRole } from "../../models/interfaces/user";
- // Importăm modelul User
+import * as bcrypt from 'bcryptjs'; // Import bcryptjs
+import { createUser, findUserByEmail } from '../repositories/userRepository'; // Import functions from repository
+import { User, UserRole } from "../../models/interfaces/user"; // CORECTAT: Calea de import ajustată la "../../models/interfaces/user"
 
-const SALT_ROUNDS = 10; // Numărul de runde de sărare pentru hash-uirea parolei (costul procesului)
+const SALT_ROUNDS = 10; // Number of salt rounds for password hashing (cost of the process)
 
 /**
- * Hash-uiește o parolă dată.
- * @param password - Parola în text clar.
- * @returns Parola hashuită.
+ * Hashes a given password.
+ * @param password - The plain text password.
+ * @returns The hashed password.
  */
 const hashPassword = async (password: string): Promise<string> => {
   return bcrypt.hash(password, SALT_ROUNDS);
@@ -18,37 +17,47 @@ const hashPassword = async (password: string): Promise<string> => {
 
 /**
  * Compară o parolă în text clar cu o parolă hashuită.
- * @param plainPassword - Parola în text clar.
- * @param hashedPassword - Parola hashuită stocată.
- * @returns True dacă parolele se potrivesc, false altfel.
+ * @param plainPassword - The plain text password.
+ * @param hashedPassword - The stored hashed password.
+ * @returns True if the passwords match, false otherwise.
  */
 const comparePasswords = async (plainPassword: string, hashedPassword: string): Promise<boolean> => {
   return bcrypt.compare(plainPassword, hashedPassword);
 };
 
 /**
- * Înregistrează un nou utilizator.
- * @param email - Email-ul utilizatorului.
- * @param password - Parola utilizatorului (în text clar).
- * @param role - Rolul utilizatorului (implicit 'user').
- * @returns Obiectul utilizatorului creat sau null dacă email-ul există deja.
+ * Registers a new user.
+ * @param firstName - User's first name.
+ * @param lastName - User's last name.
+ * @param email - User's email.
+ * @param password - User's password (in plain text).
+ * @param role - User's role (defaults to 'user').
+ * @returns The created user object or null if the email already exists.
  */
-export const registerUser = async (email: string, password: string, role: UserRole = 'user'): Promise<User | null> => {
+export const registerUser = async (
+    firstName: string,
+    lastName: string,
+    email: string, 
+    password: string, 
+    role: UserRole = 'user'
+): Promise<User | null> => {
   console.log(`SERVICE: Attempting to register user with email: ${email}`);
-  // Verifică dacă un utilizator cu acest email există deja
+  // Check if a user with this email already exists
   const existingUser = await findUserByEmail(email);
   if (existingUser) {
     console.warn(`SERVICE WARNING: User with email ${email} already exists.`);
-    return null; // Utilizatorul există deja
+    return null; // User already exists
   }
 
-  // Hash-uiește parola înainte de a o stoca
+  // Hash the password before storing it
   const hashedPassword = await hashPassword(password);
 
   const newUser: User = {
+    firstName: firstName,
+    lastName: lastName,
     email: email,
     password: hashedPassword,
-    role: role, // Atribuie rolul (implicit 'user')
+    role: role, 
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -59,15 +68,15 @@ export const registerUser = async (email: string, password: string, role: UserRo
     return createdUser;
   } catch (error) {
     console.error(`SERVICE ERROR: Failed to register user ${email}:`, error);
-    throw new Error('A eșuat înregistrarea utilizatorului.');
+    throw new Error('User registration failed.');
   }
 };
 
 /**
- * Autentifică un utilizator.
- * @param email - Email-ul utilizatorului.
- * @param password - Parola utilizatorului (în text clar).
- * @returns Obiectul utilizatorului autentificat (fără parolă) sau null dacă autentificarea eșuează.
+ * Authenticates a user.
+ * @param email - User's email.
+ * @param password - User's password (in plain text).
+ * @returns The authenticated user object (without password) or null if authentication fails.
  */
 export const authenticateUser = async (email: string, password: string): Promise<Omit<User, 'password'> | null> => {
   console.log(`SERVICE: Attempting to authenticate user with email: ${email}`);
@@ -75,19 +84,19 @@ export const authenticateUser = async (email: string, password: string): Promise
 
   if (!user) {
     console.warn(`SERVICE WARNING: Authentication failed for ${email}: User not found.`);
-    return null; // Utilizatorul nu există
+    return null; // User does not exist
   }
 
-  // Compară parola furnizată cu parola hashuită din baza de date
+  // Compare the provided password with the hashed password from the database
   const passwordMatch = await comparePasswords(password, user.password);
 
   if (!passwordMatch) {
     console.warn(`SERVICE WARNING: Authentication failed for ${email}: Incorrect password.`);
-    return null; // Parolă incorectă
+    return null; // Incorrect password
   }
 
   console.log(`SERVICE: User ${email} authenticated successfully.`);
-  // Returnează utilizatorul fără parola hashuită din motive de securitate
+  // Return the user without the hashed password for security reasons
   const { password: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 };
