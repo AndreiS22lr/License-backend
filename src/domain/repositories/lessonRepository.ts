@@ -1,10 +1,10 @@
 // src/domain/repositories/lessonRepository.ts
 
 // Asigură-te că PATH-ul este corect pentru fișierul tău de conexiune la MongoDB
-// Conform codului tău, este "../../core/database/mongoClient"
 import { getDb } from "../../core/database/mongoClient";
 import { Lesson } from "../../models/interfaces/lesson";
-import { Collection, ObjectId, OptionalId } from "mongodb";
+// Am scos FindAndModifyResult și ModifyResult din import, deoarece nu mai sunt necesare
+import { Collection, ObjectId, OptionalId, WithId } from "mongodb"; 
 import { getQuizById } from "./quizRepository";
 import { Quiz } from "../../models/interfaces/quiz";
 
@@ -20,24 +20,35 @@ function isQuiz(quiz: Quiz | null): quiz is Quiz {
 
 // Funcția pentru a crea o lecție
 export const createLesson = async (
-    // Acum tipul include sheetMusicImageUrl și audioUrl, deoarece sunt primite de la service
-    lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes' | 'quizIds'>
+    lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes'>
 ): Promise<Lesson> => {
     const collection = getLessonsCollection();
     const newLesson = {
-        ...lessonData, // lessonData va conține acum sheetMusicImageUrl și audioUrl
+        ...lessonData,
         createdAt: new Date(),
         updatedAt: new Date(),
+        quizIds: lessonData.quizIds || []
     };
 
     const result = await collection.insertOne(newLesson as OptionalId<Lesson>);
 
     const insertedLesson = await collection.findOne({ _id: result.insertedId });
     if (insertedLesson) {
-        return { ...insertedLesson, id: insertedLesson._id.toHexString() };
+        const mappedLesson: Lesson = { ...insertedLesson, id: insertedLesson._id.toHexString() };
+        
+        if (mappedLesson.quizIds && mappedLesson.quizIds.length > 0) {
+            const quizzesPromises = mappedLesson.quizIds.map(quizId => getQuizById(quizId));
+            const quizzes = await Promise.all(quizzesPromises);
+            mappedLesson.quizzes = quizzes.filter(isQuiz);
+        } else {
+            mappedLesson.quizzes = [];
+        }
+
+        return mappedLesson;
     } else {
-        // Fallback în cazul în care findOne eșuează imediat după insert (rar, dar posibil)
-        return { ...newLesson, id: result.insertedId.toHexString() };
+        const fallbackLesson: Lesson = { ...newLesson, id: result.insertedId.toHexString() };
+        fallbackLesson.quizzes = [];
+        return fallbackLesson;
     }
 };
 
@@ -52,10 +63,12 @@ export const getLessonList = async (): Promise<Lesson[]> => {
             id: lesson._id ? lesson._id.toHexString() : undefined,
         };
 
-        if (lesson.quizIds && lesson.quizIds.length > 0) {
-            const quizzesPromises = lesson.quizIds.map(quizId => getQuizById(quizId));
+        if (mappedLesson.quizIds && mappedLesson.quizIds.length > 0) {
+            const quizzesPromises = mappedLesson.quizIds.map(quizId => getQuizById(quizId));
             const quizzes = await Promise.all(quizzesPromises);
             mappedLesson.quizzes = quizzes.filter(isQuiz);
+        } else {
+            mappedLesson.quizzes = [];
         }
         return mappedLesson;
     });
@@ -85,6 +98,8 @@ export const getLessonById = async (id: string): Promise<Lesson | null> => {
                 const quizzesPromises = foundLesson.quizIds.map(quizId => getQuizById(quizId));
                 const quizzes = await Promise.all(quizzesPromises);
                 foundLesson.quizzes = quizzes.filter(isQuiz);
+            } else {
+                foundLesson.quizzes = [];
             }
         }
     } catch (error) {
@@ -98,7 +113,7 @@ export const getLessonById = async (id: string): Promise<Lesson | null> => {
 // Funcția pentru a actualiza o lecție (cu log-uri de depanare și corecții de tipare)
 export const updateLesson = async (
     id: string,
-    partialLesson: Partial<Omit<Lesson, 'quizzes'>>
+    partialLesson: Partial<Omit<Lesson, 'quizzes' | 'createdAt' | 'updatedAt'>>
 ): Promise<Lesson | null> => {
     const collection = getLessonsCollection();
     let objectId: ObjectId;
@@ -121,28 +136,26 @@ export const updateLesson = async (
         throw error;
     }
 
-    const updateFields: Omit<Partial<Lesson>, 'id' | 'createdAt' | 'updatedAt' | 'quizzes'> = { ...partialLesson };
+    const updateFields: Partial<Lesson> = { ...partialLesson };
     delete (updateFields as any).id;
-    delete (updateFields as any).createdAt;
-    delete (updateFields as any).updatedAt;
     delete (updateFields as any).quizzes;
+    delete (updateFields as any).createdAt; 
+    delete (updateFields as any).updatedAt; 
 
     try {
         console.log("REPOSITORY DEBUG: Căutare după _id:", objectId);
         console.log("REPOSITORY DEBUG: Câmpuri de actualizat cu $set:", { ...updateFields, updatedAt: new Date() });
 
-        const result = await collection.findOneAndUpdate(
+        // MODIFICAT AICI: `findOneAndUpdate` returnează acum direct documentul (sau null)
+        const updatedDocument = await collection.findOneAndUpdate(
             { _id: objectId },
             { $set: { ...updateFields, updatedAt: new Date() } },
-            { returnDocument: 'after' }
+            { returnDocument: 'after' } // Asigură-te că driverul returnează documentul după actualizare
         );
 
-        console.log("REPOSITORY DEBUG: Rezultat complet de la findOneAndUpdate:", result);
+        console.log("REPOSITORY DEBUG: Rezultat complet de la findOneAndUpdate:", updatedDocument);
 
-        // NOU: Verificăm 'value' după un cast la 'any' pentru a mulțumi TypeScript-ul
-        if ((result as any) && (result as any).value) {
-            const updatedDocument = (result as any).value; // Aici se accesează 'value' după cast
-
+        if (updatedDocument) { // Acum verificăm direct `updatedDocument`
             console.log("REPOSITORY DEBUG: Lecție găsită și actualizată cu succes. _id:", updatedDocument._id.toHexString());
             const mappedLesson: Lesson = {
                 ...updatedDocument,
@@ -153,6 +166,8 @@ export const updateLesson = async (
                 const quizzesPromises = mappedLesson.quizIds.map(quizId => getQuizById(quizId));
                 const quizzes = await Promise.all(quizzesPromises);
                 mappedLesson.quizzes = quizzes.filter(isQuiz);
+            } else {
+                mappedLesson.quizzes = [];
             }
 
             console.log("REPOSITORY DEBUG: Document mapat pentru a fi returnat:", mappedLesson);
@@ -186,7 +201,7 @@ export const deleteLessonById = async (id: string): Promise<boolean> => {
     }
 };
 
-// Funcția pentru a actualiza doar calea audio a unei lecții
+// Funcția pentru a actualiza doar calea audio a unei lecții (cu populare de quiz-uri)
 export const updateLessonAudio = async (lessonId: string, audioUrl: string): Promise<Lesson | null> => {
     const collection = getLessonsCollection();
     try {
@@ -196,33 +211,29 @@ export const updateLessonAudio = async (lessonId: string, audioUrl: string): Pro
         }
         const objectId = new ObjectId(lessonId);
 
-        const result = await collection.findOneAndUpdate(
+        // MODIFICAT AICI: `findOneAndUpdate` returnează acum direct documentul (sau null)
+        const updatedDocument = await collection.findOneAndUpdate(
             { _id: objectId },
             { $set: { audioUrl: audioUrl, updatedAt: new Date() } },
             { returnDocument: 'after' }
         );
 
-        // NOU: Verificăm 'value' după un cast la 'any' pentru a mulțumi TypeScript-ul
-        if ((result as any) && (result as any).value) {
-            const updatedDocument = (result as any).value; // Aici se accesează 'value' după cast
+        if (updatedDocument) { // Acum verificăm direct `updatedDocument`
+            const mappedLesson: Lesson = {
+                ...updatedDocument,
+                id: updatedDocument._id ? updatedDocument._id.toHexString() : undefined,
+            };
 
-            if (updatedDocument) {
-                const mappedLesson: Lesson = {
-                    ...updatedDocument,
-                    id: updatedDocument._id ? updatedDocument._id.toHexString() : undefined,
-                };
-
-                if (mappedLesson.quizIds && mappedLesson.quizIds.length > 0) {
-                    const quizzesPromises = mappedLesson.quizIds.map(quizId => getQuizById(quizId));
-                    const quizzes = await Promise.all(quizzesPromises);
-                    mappedLesson.quizzes = quizzes.filter(isQuiz);
-                }
-                return mappedLesson;
+            if (mappedLesson.quizIds && mappedLesson.quizIds.length > 0) {
+                const quizzesPromises = mappedLesson.quizIds.map(quizId => getQuizById(quizId));
+                const quizzes = await Promise.all(quizzesPromises);
+                mappedLesson.quizzes = quizzes.filter(isQuiz);
             } else {
-                return null;
+                mappedLesson.quizzes = [];
             }
+            return mappedLesson;
         } else {
-            return null; // Lecția nu a fost găsită sau nu a putut fi actualizată
+            return null;
         }
     } catch (error) {
         console.error(`REPOSITORY ERROR: Eroare la actualizarea audio pentru lecția cu ID ${lessonId}:`, error);
