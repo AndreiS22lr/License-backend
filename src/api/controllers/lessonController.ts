@@ -8,27 +8,17 @@ import {
     uploadLessonAudioService,
 } from "../../domain/services/lessonService";
 import { Lesson } from "../../models/interfaces/lesson";
+// Nu mai avem nevoie de QuizQuestion aici, deoarece lucrăm cu quizIds, nu cu structura directă a întrebărilor în controler.
+// import { QuizQuestion } from "../../models/interfaces/quiz"; // <-- Eliminat, nu e necesar aici
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 
-// --- CORECTIE CHEIE AICI: Directorul de bază pentru operațiile de fișiere ---
-// Acesta trebuie să corespundă cu `UPLOADS_BASE_DIR` din `app.ts` și cu `UPLOADS_ROOT_DIR` din `lessonRoutes.ts`
-// care este 'your-project/uploads' (rădăcina proiectului)
-// `__dirname` în `src/api/controllers/` este 'your-project/src/api/controllers/'
-// '..', '..' te duce la 'your-project/src/'
-// '..', '..', '..' te duce la 'your-project/' (rădăcina proiectului)
-// Apoi, adăugăm 'uploads'.
-const UPLOADS_BASE_DIR = path.join(__dirname, '..', '..', '..', 'uploads'); // <-- MODIFICAT AICI
+const UPLOADS_BASE_DIR = path.join(__dirname, '..', '..', '..', 'uploads');
 
-// --- MODIFICAT: Funcția ajutătoare pentru a șterge un fișier existent de pe disc ---
 const deleteFileIfExists = (relativePath: string | undefined) => {
     if (relativePath) {
-        // Calea relativă vine din DB (ex: '/uploads/lessons/imagine.jpg')
-        // Trebuie să extragem partea 'lessons/imagine.jpg' pentru a o alătura la UPLOADS_BASE_DIR
         const pathRelativeToUploads = relativePath.startsWith('/uploads/') ? relativePath.substring('/uploads/'.length) : relativePath;
-
-        // Construim calea absolută pe disc
         const absolutePath = path.join(UPLOADS_BASE_DIR, pathRelativeToUploads);
 
         fs.unlink(absolutePath, (err) => {
@@ -92,25 +82,57 @@ export const getLessonById = async (req: Request, res: Response): Promise<void> 
 
 export const createLesson = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, order, theoryContent } = req.body;
+        // Am inclus quizIds în destructuring, ca string JSON sau array
+        const { title, order, theoryContent, quizIds } = req.body;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+        if (!title || !order || !theoryContent) {
+            res.status(400).json({ message: "Titlul, ordinea și conținutul teoretic sunt obligatorii." });
+            return;
+        }
 
         const sheetMusicImageFile = files['sheetMusicImage'] ? files['sheetMusicImage'][0] : undefined;
         const audioLessonFile = files['audioFile'] ? files['audioFile'][0] : undefined;
 
-        // Calea salvată în DB trebuie să includă "lessons/"
         const sheetMusicImageUrl = sheetMusicImageFile ? `/uploads/lessons/${sheetMusicImageFile.filename}` : undefined;
         const audioUrl = audioLessonFile ? `/uploads/lessons/${audioLessonFile.filename}` : undefined;
 
-        const lessonData = {
-            title,
+        // NEW: Parsarea și validarea quizIds
+        let parsedQuizIds: string[] = [];
+        if (quizIds !== undefined) {
+            try {
+                if (typeof quizIds === 'string' && quizIds.trim() !== '') {
+                    const parsed = JSON.parse(quizIds);
+                    // Asigură că e un array de string-uri (ID-uri)
+                    if (Array.isArray(parsed) && parsed.every((id: any) => typeof id === 'string')) {
+                        parsedQuizIds = parsed;
+                    } else {
+                        console.warn('quizIds received is not a valid string array (create):', parsed);
+                        parsedQuizIds = []; // Ignoră dacă formatul e greșit
+                    }
+                } else if (Array.isArray(quizIds) && quizIds.every((id: any) => typeof id === 'string')) {
+                    parsedQuizIds = quizIds; // Dacă e deja un array valid
+                } else if (quizIds === null || (typeof quizIds === 'string' && quizIds.trim() === '')) {
+                    parsedQuizIds = []; // Dacă se trimite null sau string gol, nu adăugăm ID-uri
+                }
+            } catch (jsonError) {
+                console.error('Eroare la parsarea quizIds (create):', jsonError);
+                res.status(400).json({ message: 'Format invalid pentru quizIds. Trebuie să fie un JSON array de stringuri valid.' });
+                return;
+            }
+        }
+
+
+        const lessonData: Record<string, any> = {
+            title: title as string,
             order: parseInt(order as string),
-            theoryContent,
+            theoryContent: theoryContent as string,
             sheetMusicImageUrl,
             audioUrl,
+            quizIds: parsedQuizIds, // Adăugăm quizIds
         };
 
-        const newLesson: Lesson = await createLessonService(lessonData);
+        const newLesson: Lesson = await createLessonService(lessonData as Lesson);
 
         res.status(201).json({
             message: "Lecție creată cu succes.",
@@ -131,6 +153,7 @@ export const createLesson = async (req: Request, res: Response): Promise<void> =
 
 export const updateLesson = async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
+    // Am inclus quizIds în destructuring
     const { title, order, theoryContent, quizIds } = req.body;
 
     try {
@@ -146,26 +169,39 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
         }
 
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const updatedData: Partial<Lesson> = {
-            title,
-            order: order !== undefined ? parseInt(order as string) : existingLesson.order,
-            theoryContent,
+        const updatedData: Partial<Record<string, any>> = {
+            title: title !== undefined ? String(title) : undefined,
+            order: order !== undefined ? parseInt(order as string) : undefined,
+            theoryContent: theoryContent !== undefined ? String(theoryContent) : undefined,
         };
 
+        // NEW: Logica de actualizare pentru quizIds
+        let parsedQuizIds: string[] = [];
         if (quizIds !== undefined) {
             try {
                 if (typeof quizIds === 'string' && quizIds.trim() !== '') {
-                    updatedData.quizIds = JSON.parse(quizIds);
-                } else if (Array.isArray(quizIds)) {
-                    updatedData.quizIds = quizIds;
-                } else if (quizIds === null || quizIds === '') {
-                    updatedData.quizIds = [];
+                    const parsed = JSON.parse(quizIds);
+                    if (Array.isArray(parsed) && parsed.every((id: any) => typeof id === 'string')) {
+                        parsedQuizIds = parsed;
+                    } else {
+                        console.warn('quizIds received is not a valid string array for update, or has incorrect structure:', parsed);
+                        parsedQuizIds = []; // Sau poți alege să nu modifici ID-urile existente
+                    }
+                } else if (Array.isArray(quizIds) && quizIds.every((id: any) => typeof id === 'string')) {
+                    parsedQuizIds = quizIds; // Dacă e deja un array valid
+                } else if (quizIds === null || (typeof quizIds === 'string' && quizIds.trim() === '')) {
+                    parsedQuizIds = []; // Dacă se trimite null sau string gol, ștergem ID-urile
+                } else {
+                    console.warn('quizIds received has an unexpected type for update:', typeof quizIds, quizIds);
+                    parsedQuizIds = (existingLesson as any).quizIds || []; // Folosim ID-urile existente
                 }
             } catch (jsonError) {
-                console.warn(`Could not parse quizIds: ${quizIds}. Using existing quizIds. Error: ${jsonError}`);
-                updatedData.quizIds = existingLesson.quizIds;
+                console.error(`Could not parse quizIds: ${quizIds}. Error: ${jsonError}`);
+                parsedQuizIds = (existingLesson as any).quizIds || []; // În caz de eroare la parsare, păstrăm ID-urile existente
             }
+            updatedData.quizIds = parsedQuizIds;
         } else {
+            // Dacă quizIds nu este furnizat în request, păstrăm ce există deja în lecție
             updatedData.quizIds = existingLesson.quizIds;
         }
 
@@ -196,7 +232,7 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
             updatedData.audioUrl = undefined;
         }
 
-        const updatedLessonResult: Lesson | null = await updateLessonService(id, updatedData);
+        const updatedLessonResult: Lesson | null = await updateLessonService(id, updatedData as Partial<Lesson>);
 
         if (!updatedLessonResult) {
             res.status(404).json({ message: `Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.` });
@@ -270,8 +306,6 @@ export const uploadLessonAudio = async (req: Request, res: Response): Promise<vo
         }
 
         const lessonId = req.params.id;
-        // ATENTIE: Aceasta cale este pentru audio-urile ÎNCĂRCATE DE UTILIZATOR (ex: înregistrări)
-        // care se presupune că merg într-un folder 'audio_recordings', nu 'lessons'.
         const audioPath = `/uploads/audio_recordings/${req.file.filename}`;
 
         if (!lessonId) {

@@ -6,7 +6,8 @@ import {
   getQuizList,
   getQuizById,
   updateQuiz,
-  deleteQuizById
+  deleteQuizById,
+  getQuizByLessonId // <-- NOU: Importă noul controller
 } from '../controllers/quizController';
 
 const router = Router();
@@ -25,5 +26,8 @@ router.put('/update/:id', updateQuiz);
 
 // Ruta pentru a șterge un quiz după ID
 router.delete('/delete/:id', deleteQuizById);
+
+// --- NOU: Ruta pentru a obține un quiz după ID-ul lecției ---
+router.get('/by-lesson/:lessonId', getQuizByLessonId);
 
 export default router;

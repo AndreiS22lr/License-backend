@@ -19,19 +19,14 @@ import fs from 'fs';
 const router = express.Router();
 
 // Definește directorul de bază unde Multer va salva fișierele uploadate.
-// Aceasta este 'your-project/uploads' (rădăcina proiectului)
 const UPLOADS_ROOT_DIR = path.join(__dirname, '..', '..', '..', 'uploads');
-
-// Definește directorul specific pentru lecții în cadrul UPLOADS_ROOT_DIR
 const LESSONS_SPECIFIC_DIR = path.join(UPLOADS_ROOT_DIR, 'lessons'); 
 
-// Creează directorul de bază 'uploads' (în rădăcina proiectului) dacă nu există
+// Creează directoarele dacă nu există
 if (!fs.existsSync(UPLOADS_ROOT_DIR)) {
     fs.mkdirSync(UPLOADS_ROOT_DIR, { recursive: true });
     console.log(`Directorul de bază 'uploads' a fost creat la: ${UPLOADS_ROOT_DIR}`);
 }
-
-// Creează directorul specific 'lessons' în cadrul 'uploads' dacă nu există
 if (!fs.existsSync(LESSONS_SPECIFIC_DIR)) {
     fs.mkdirSync(LESSONS_SPECIFIC_DIR, { recursive: true });
     console.log(`Directorul specific 'uploads/lessons' a fost creat la: ${LESSONS_SPECIFIC_DIR}`);
@@ -64,7 +59,11 @@ router.post("/create",
     authorizeAdmin,
     uploadLessons.fields([
         { name: 'sheetMusicImage', maxCount: 1 },
-        { name: 'audioFile', maxCount: 1 }
+        { name: 'audioFile', maxCount: 1 },
+        { name: 'title' },           // Adaugă câmpurile text
+        { name: 'order' },           // Adaugă câmpurile text
+        { name: 'theoryContent' },   // Adaugă câmpurile text
+        { name: 'quizQuestions' }    // <-- CRUCIAL: Adaugă câmpul pentru quiz! (folosește numele din frontend)
     ]),
     createLesson
 );
@@ -74,7 +73,11 @@ router.put("/:id",
     authorizeAdmin,
     uploadLessons.fields([
         { name: 'sheetMusicImage', maxCount: 1 },
-        { name: 'audioFile', maxCount: 1 }
+        { name: 'audioFile', maxCount: 1 },
+        { name: 'title' },           // Adaugă câmpurile text
+        { name: 'order' },           // Adaugă câmpurile text
+        { name: 'theoryContent' },   // Adaugă câmpurile text
+        { name: 'quizQuestions' }    // <-- CRUCIAL: Adaugă câmpul pentru quiz!
     ]),
     updateLesson
 );
@@ -87,8 +90,8 @@ router.delete("/:id",
 
 import uploadAudio from '../../core/config/multerConfig';
 
-// CORECTAT: RUTA PENTRU ÎNCĂRCĂRILE AUDIO ALE UTILIZATORULUI - ACUM DOAR NECESITĂ AUTENTIFICARE, NU ȘI ROL DE ADMIN
-router.post("/:id/upload-audio", authenticate, uploadAudio.single('audioFile'), uploadLessonAudio); // <-- CRUCIAL: 'authorizeAdmin' ELIMINAT
+// RUTA PENTRU ÎNCĂRCĂRILE AUDIO ALE UTILIZATORULUI
+router.post("/:id/upload-audio", authenticate, uploadAudio.single('audioFile'), uploadLessonAudio);
 
 
 export default router;

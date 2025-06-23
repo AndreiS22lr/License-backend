@@ -71,3 +71,16 @@ export const deleteQuizByIdService = async (id: string): Promise<boolean> => {
     throw error;
   }
 };
+
+// --- NOU: Serviciu pentru a obține un quiz după ID-ul lecției ---
+export const getQuizByLessonIdService = async (lessonId: string): Promise<Quiz | null> => {
+  try {
+    const quiz = await quizRepository.getQuizByLessonId(lessonId);
+    // Nu aruncăm eroare dacă nu e găsit, returnăm null.
+    // E ok să nu existe un quiz pentru o lecție.
+    return quiz;
+  } catch (error) {
+    console.error(`SERVICE ERROR (Quiz): Eroare la obținerea quiz-ului pentru lessonId ${lessonId}:`, error);
+    throw error;
+  }
+};

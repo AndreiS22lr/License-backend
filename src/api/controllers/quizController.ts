@@ -7,6 +7,7 @@ import {
   getQuizByIdService,
   getQuizListService,
   updateQuizService,
+  getQuizByLessonIdService, // <-- NOU: Importă noul serviciu
 } from "../../domain/services/quizService";
 import { Quiz } from "../../models/interfaces/quiz"; // Importăm interfața Quiz
 
@@ -92,6 +93,27 @@ export const deleteQuizById = async (req: Request, res: Response) => {
     const statusCode = error instanceof Error && error.message.includes("nu a fost găsit") ? 404 : 500;
     res.status(statusCode).json({
       error: `A eșuat ștergerea quiz-ului cu ID ${id}.`,
+      details: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// --- NOU: Controller pentru a obține un quiz după ID-ul lecției ---
+export const getQuizByLessonId = async (req: Request, res: Response) => {
+  const lessonId = req.params.lessonId;
+  try {
+    const quiz = await getQuizByLessonIdService(lessonId);
+    if (quiz) {
+      res.status(200).json(quiz);
+    } else {
+      // Returnează 404 dacă nu a fost găsit un quiz pentru lessonId-ul dat.
+      // E o situație validă ca o lecție să nu aibă quiz.
+      res.status(404).json({ message: `Nu s-a găsit niciun quiz pentru lecția cu ID ${lessonId}.` });
+    }
+  } catch (error) {
+    console.error(`CONTROLLER ERROR (Quiz): Eroare la obținerea quiz-ului pentru lessonId ${lessonId}:`, error);
+    res.status(500).json({
+      error: `A eșuat obținerea quiz-ului pentru lecția cu ID ${lessonId}.`,
       details: error instanceof Error ? error.message : error,
     });
   }

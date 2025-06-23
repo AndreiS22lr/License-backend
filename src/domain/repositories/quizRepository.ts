@@ -104,3 +104,21 @@ export const deleteQuizById = async (id: string): Promise<boolean> => {
         return false;
     }
 };
+
+// --- NOU: Funcția pentru a obține un quiz după ID-ul lecției ---
+export const getQuizByLessonId = async (lessonId: string): Promise<Quiz | null> => {
+    const collection = getQuizzesCollection();
+    try {
+        const quiz = await collection.findOne({ lessonId: lessonId });
+        if (quiz) {
+            return {
+                ...quiz,
+                id: quiz._id ? quiz._id.toHexString() : undefined
+            };
+        }
+    } catch (error) {
+        console.error("REPOSITORY ERROR (Quiz): Eroare la găsirea quiz-ului după lessonId:", error);
+        return null;
+    }
+    return null;
+};

@@ -13,6 +13,7 @@ export interface QuizQuestion {
 // Interfața principală pentru un Quiz
 export interface Quiz {
   id?: string; // ID-ul generat de MongoDB
+  lessonId: string;
   title: string;
   description?: string; // O scurtă descriere a quiz-ului
   questions: QuizQuestion[]; // Array-ul de întrebări pentru acest quiz
