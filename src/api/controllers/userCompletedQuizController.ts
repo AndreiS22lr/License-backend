@@ -22,9 +22,9 @@ export const submitQuizAnswers = async (req: Request, res: Response, next: NextF
     userAnswers: req.body.userAnswers
   };
 
-  if (!submitData.quizId || !submitData.userAnswers || !Array.isArray(submitData.userAnswers)) {
-    res.status(400).json({ message: "Date invalide. Sunt necesare quizId și userAnswers." }); // ELIMINAT 'return'
-    return; // Adăugăm un return gol pentru a opri execuția funcției
+  if (!submitData.quizId || !submitData.userAnswers || typeof submitData.userAnswers !== 'object' || Object.keys(submitData.userAnswers).length === 0) {
+    res.status(400).json({ message: "Date invalide. Sunt necesare quizId și userAnswers (ca un obiect non-gol)." });
+    return;
   }
 
   try {
