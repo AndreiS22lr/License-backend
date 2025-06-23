@@ -14,7 +14,7 @@ router.use("/cars", carRoutes);
 router.use("/products", productRoutes);
 router.use("/lessons", lessonRoutes);
 router.use("/quizzes", quizRoutes);
-router.use('/quiz-results', userCompletedQuizRoutes);
+router.use('/user-completed-quizzes', userCompletedQuizRoutes);
 router.use('/auth', authRoutes);
 router.use('/user-recordings', userRecordingRoutes);
 export default router;
