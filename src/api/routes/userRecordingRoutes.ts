@@ -5,39 +5,39 @@ import {
     uploadUserRecording,
     getUserRecordingsMe,
     deleteUserRecording,
-    getUserRecordingsForLesson // NOU: Importă funcția lipsă
+    getUserRecordingsForLesson 
 } from '../controllers/userRecordingController';
 import { authenticate } from '../../core/middlewares/authMiddleware';
-import uploadAudio from '../../core/config/multerConfig'; // Multer configurat pentru înregistrări audio utilizator
+import uploadAudio from '../../core/config/multerConfig'; 
 
 const router = express.Router();
 
 /**
- * @route POST /api/user-recordings/:lessonId
- * @desc Încarcă o înregistrare audio a utilizatorului pentru o anumită lecție.
- * @access Privat (necesită autentificare)
+ * @route 
+ * @desc 
+ * @access 
  */
 router.post('/:lessonId', authenticate, uploadAudio.single('audioFile'), uploadUserRecording);
 
 /**
- * @route GET /api/user-recordings/:lessonId/my-recordings
- * @desc Obține toate înregistrările audio ale utilizatorului autentificat pentru o lecție specifică.
- * @access Privat (necesită autentificare)
- * NOU: Această rută a fost adăugată.
+ * @route 
+ * @desc 
+ * @access 
+ 
  */
 router.get('/:lessonId/my-recordings', authenticate, getUserRecordingsForLesson);
 
 /**
- * @route GET /api/user-recordings/me
- * @desc Obține toate înregistrările audio ale utilizatorului autentificat.
- * @access Privat (necesită autentificare)
+ * @route 
+ * @desc 
+ * @access 
  */
 router.get('/me', authenticate, getUserRecordingsMe);
 
 /**
- * @route DELETE /api/user-recordings/:recordingId
- * @desc Șterge o înregistrare audio a utilizatorului.
- * @access Privat (necesită autentificare, doar proprietarul poate șterge)
+ * @route 
+ * @desc 
+ * @access 
  */
 router.delete('/:recordingId', authenticate, deleteUserRecording);
 

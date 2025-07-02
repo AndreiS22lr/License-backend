@@ -77,7 +77,7 @@ export const getLessonList = async (): Promise<Lesson[]> => {
 };
 
 
-// Funcția pentru a obține o lecție după ID (cu populare de quiz-uri)
+
 export const getLessonById = async (id: string): Promise<Lesson | null> => {
     const collection = getLessonsCollection();
     let foundLesson: Lesson | null = null;
@@ -110,7 +110,7 @@ export const getLessonById = async (id: string): Promise<Lesson | null> => {
 };
 
 
-// Funcția pentru a actualiza o lecție (cu log-uri de depanare și corecții de tipare)
+
 export const updateLesson = async (
     id: string,
     partialLesson: Partial<Omit<Lesson, 'quizzes' | 'createdAt' | 'updatedAt'>>
@@ -146,7 +146,7 @@ export const updateLesson = async (
         console.log("REPOSITORY DEBUG: Căutare după _id:", objectId);
         console.log("REPOSITORY DEBUG: Câmpuri de actualizat cu $set:", { ...updateFields, updatedAt: new Date() });
 
-        // MODIFICAT AICI: `findOneAndUpdate` returnează acum direct documentul (sau null)
+        
         const updatedDocument = await collection.findOneAndUpdate(
             { _id: objectId },
             { $set: { ...updateFields, updatedAt: new Date() } },
@@ -155,7 +155,7 @@ export const updateLesson = async (
 
         console.log("REPOSITORY DEBUG: Rezultat complet de la findOneAndUpdate:", updatedDocument);
 
-        if (updatedDocument) { // Acum verificăm direct `updatedDocument`
+        if (updatedDocument) { 
             console.log("REPOSITORY DEBUG: Lecție găsită și actualizată cu succes. _id:", updatedDocument._id.toHexString());
             const mappedLesson: Lesson = {
                 ...updatedDocument,
@@ -185,7 +185,7 @@ export const updateLesson = async (
     }
 };
 
-// Funcția pentru a șterge o lecție după ID
+
 export const deleteLessonById = async (id: string): Promise<boolean> => {
     const collection = getLessonsCollection();
     try {
@@ -201,7 +201,7 @@ export const deleteLessonById = async (id: string): Promise<boolean> => {
     }
 };
 
-// Funcția pentru a actualiza doar calea audio a unei lecții (cu populare de quiz-uri)
+
 export const updateLessonAudio = async (lessonId: string, audioUrl: string): Promise<Lesson | null> => {
     const collection = getLessonsCollection();
     try {
@@ -211,14 +211,14 @@ export const updateLessonAudio = async (lessonId: string, audioUrl: string): Pro
         }
         const objectId = new ObjectId(lessonId);
 
-        // MODIFICAT AICI: `findOneAndUpdate` returnează acum direct documentul (sau null)
+        
         const updatedDocument = await collection.findOneAndUpdate(
             { _id: objectId },
             { $set: { audioUrl: audioUrl, updatedAt: new Date() } },
             { returnDocument: 'after' }
         );
 
-        if (updatedDocument) { // Acum verificăm direct `updatedDocument`
+        if (updatedDocument) { 
             const mappedLesson: Lesson = {
                 ...updatedDocument,
                 id: updatedDocument._id ? updatedDocument._id.toHexString() : undefined,

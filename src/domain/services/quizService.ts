@@ -1,9 +1,9 @@
 // src/domain/services/quizService.ts
 
 import { Quiz } from "../../models/interfaces/quiz";
-import * as quizRepository from "../repositories/quizRepository"; // Importăm toate funcțiile din quizRepository
+import * as quizRepository from "../repositories/quizRepository"; 
 
-// Serviciu pentru crearea unui quiz
+
 export const createQuizService = async (
   quizData: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<Quiz> => {
@@ -16,7 +16,7 @@ export const createQuizService = async (
   }
 };
 
-// Serviciu pentru a obține toate quiz-urile
+
 export const getQuizListService = async (): Promise<Quiz[]> => {
   try {
     const quizzes = await quizRepository.getQuizList();
@@ -27,7 +27,7 @@ export const getQuizListService = async (): Promise<Quiz[]> => {
   }
 };
 
-// Serviciu pentru a obține un quiz după ID
+
 export const getQuizByIdService = async (id: string): Promise<Quiz | null> => {
   try {
     const quiz = await quizRepository.getQuizById(id);
@@ -37,11 +37,11 @@ export const getQuizByIdService = async (id: string): Promise<Quiz | null> => {
     return quiz;
   } catch (error) {
     console.error(`SERVICE ERROR (Quiz): Eroare la obținerea quiz-ului cu ID ${id}:`, error);
-    throw error; // Propagă eroarea (ex: "Quiz-ul nu a fost găsit" sau eroare tehnică)
+    throw error; 
   }
 };
 
-// Serviciu pentru a actualiza un quiz
+
 export const updateQuizService = async (
   id: string,
   partialQuiz: Partial<Quiz>
@@ -58,7 +58,7 @@ export const updateQuizService = async (
   }
 };
 
-// Serviciu pentru a șterge un quiz
+
 export const deleteQuizByIdService = async (id: string): Promise<boolean> => {
   try {
     const deleted = await quizRepository.deleteQuizById(id);
@@ -72,12 +72,11 @@ export const deleteQuizByIdService = async (id: string): Promise<boolean> => {
   }
 };
 
-// --- NOU: Serviciu pentru a obține un quiz după ID-ul lecției ---
+
 export const getQuizByLessonIdService = async (lessonId: string): Promise<Quiz | null> => {
   try {
     const quiz = await quizRepository.getQuizByLessonId(lessonId);
-    // Nu aruncăm eroare dacă nu e găsit, returnăm null.
-    // E ok să nu existe un quiz pentru o lecție.
+    
     return quiz;
   } catch (error) {
     console.error(`SERVICE ERROR (Quiz): Eroare la obținerea quiz-ului pentru lessonId ${lessonId}:`, error);

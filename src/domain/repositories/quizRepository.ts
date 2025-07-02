@@ -1,16 +1,16 @@
 // src/domain/repositories/quizRepository.ts
 
-import { getDb } from "../../core/database/mongoClient"; // Asigură-te că acest import este corect
-import { Quiz, QuizQuestion } from "../../models/interfaces/quiz"; // Importăm interfețele Quiz
+import { getDb } from "../../core/database/mongoClient"; 
+import { Quiz, QuizQuestion } from "../../models/interfaces/quiz"; 
 import { Collection, ObjectId, OptionalId } from "mongodb";
 
-// Funcție ajutătoare pentru a obține colecția 'quizzes'
+
 const getQuizzesCollection = (): Collection<Quiz> => {
-    // Asigură-te că numele colecției 'quizzes' este corect în baza ta de date
+    
     return getDb().collection<Quiz>("quizzes");
 };
 
-// Funcția pentru a crea un quiz
+
 export const createQuiz = async (
     quizData: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<Quiz> => {
@@ -24,7 +24,7 @@ export const createQuiz = async (
     return { ...newQuiz, id: result.insertedId.toHexString() };
 };
 
-// Funcția pentru a obține toate quiz-urile
+
 export const getQuizList = async (): Promise<Quiz[]> => {
     const collection = getQuizzesCollection();
     const quizzes = await collection.find({}).toArray();
@@ -34,7 +34,7 @@ export const getQuizList = async (): Promise<Quiz[]> => {
     }));
 };
 
-// Funcția pentru a obține un quiz după ID
+
 export const getQuizById = async (id: string): Promise<Quiz | null> => {
     const collection = getQuizzesCollection();
     try {
@@ -50,10 +50,10 @@ export const getQuizById = async (id: string): Promise<Quiz | null> => {
         console.error("REPOSITORY ERROR (Quiz): Eroare la conversia ID-ului sau găsirea quiz-ului:", error);
         return null;
     }
-    return null; // Returnează null dacă nu a fost găsit sau a apărut o eroare
+    return null; 
 };
 
-// Funcția pentru a actualiza un quiz (CORECTATĂ PENTRU TIPARE)
+
 export const updateQuiz = async (
     id: string,
     partialQuiz: Partial<Quiz>
@@ -69,23 +69,23 @@ export const updateQuiz = async (
     }
 
     const updateFields: Omit<Partial<Quiz>, 'id' | 'createdAt' | 'updatedAt'> = { ...partialQuiz };
-    delete (updateFields as any).id; // Elimină 'id' din obiectul de update
+    delete (updateFields as any).id; 
 
     try {
-        // Aici este corecția cheie: `updatedDocument` va fi direct rezultatul sau `null`
+        
         const updatedDocument = await collection.findOneAndUpdate(
             { _id: objectId },
             { $set: { ...updateFields, updatedAt: new Date() } },
-            { returnDocument: 'after' } // Asigură-te că driverul MongoDB returnează documentul după actualizare
+            { returnDocument: 'after' } 
         );
 
-        if (updatedDocument) { // Verifică direct `updatedDocument`
+        if (updatedDocument) { 
             return {
-                ...updatedDocument, // Acesta este deja obiectul Quiz cu _id
+                ...updatedDocument, 
                 id: updatedDocument._id ? updatedDocument._id.toHexString() : undefined
             };
         } else {
-            return null; // Quiz-ul nu a fost găsit sau actualizarea a eșuat
+            return null; 
         }
     } catch (error) {
         console.error(`REPOSITORY ERROR (Quiz): Eroare la apelul findOneAndUpdate pentru ID ${id}:`, error);
@@ -93,7 +93,7 @@ export const updateQuiz = async (
     }
 };
 
-// Funcția pentru a șterge un quiz după ID
+
 export const deleteQuizById = async (id: string): Promise<boolean> => {
     const collection = getQuizzesCollection();
     try {
@@ -105,7 +105,7 @@ export const deleteQuizById = async (id: string): Promise<boolean> => {
     }
 };
 
-// --- NOU: Funcția pentru a obține un quiz după ID-ul lecției ---
+
 export const getQuizByLessonId = async (lessonId: string): Promise<Quiz | null> => {
     const collection = getQuizzesCollection();
     try {

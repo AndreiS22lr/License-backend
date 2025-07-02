@@ -1,21 +1,19 @@
 // src/domain/repositories/userRecordingRepository.ts
 
-import { Collection, ObjectId, OptionalId } from 'mongodb'; // FindAndModifyResult rămâne importat, deși nu va mai fi folosit direct în upsert
+import { Collection, ObjectId, OptionalId } from 'mongodb'; 
 import { getDb } from "../../core/database/mongoClient";
 import { UserRecording } from "../../models/interfaces/userRecording";
 
-/**
- * Returnează colecția MongoDB pentru înregistrările utilizatorilor.
- */
+
 const getUserRecordingsCollection = (): Collection<UserRecording> => {
     return getDb().collection<UserRecording>('userRecordings');
 };
 
 /**
- * Creează o nouă înregistrare a utilizatorului în baza de date.
- * @param recordingData - Obiectul înregistrării utilizatorului de creat.
- * @returns Înregistrarea creată, inclusiv ID-ul din baza de date.
- * @deprecated Folosiți upsertUserRecording pentru a asigura o singură înregistrare per lecție.
+ 
+ * @param recordingData 
+ * @returns 
+ * @deprecated 
  */
 export const createUserRecording = async (
     recordingData: Omit<UserRecording, 'id' | 'createdAt' | 'updatedAt'>
@@ -41,13 +39,11 @@ export const createUserRecording = async (
 };
 
 /**
- * Salvează sau actualizează o înregistrare a utilizatorului.
- * Dacă există deja o înregistrare pentru userId și lessonId, o va actualiza.
- * Altfel, va crea o înregistrare nouă.
- * @param userId - ID-ul utilizatorului.
- * @param lessonId - ID-ul lecției.
- * @param audioUrl - Calea URL către fișierul audio.
- * @returns Înregistrarea utilizatorului salvată sau actualizată.
+ 
+ * @param userId 
+ * @param lessonId 
+ * @param audioUrl 
+ * @returns 
  */
 export const upsertUserRecording = async (
     userId: string,
@@ -59,7 +55,7 @@ export const upsertUserRecording = async (
 
     console.log(`REPOSITORY DEBUG (upsertUserRecording): Începe upsert pentru userId: ${userId}, lessonId: ${lessonId}, audioUrl: ${audioUrl}`);
 
-    // Caută o înregistrare existentă pentru acest utilizator și această lecție
+    
     const existingRecording = await collection.findOne({ userId: userId, lessonId: lessonId });
 
     let finalRecording: UserRecording | null = null; // Inițializăm la null
@@ -67,21 +63,21 @@ export const upsertUserRecording = async (
     if (existingRecording) {
         console.log(`REPOSITORY DEBUG (upsertUserRecording): Înregistrare existentă găsită cu ID: ${existingRecording._id.toHexString()}. Se actualizează.`);
         
-        // NOUA LOGICĂ: Folosim updateOne și apoi findOne, similar cu exemplul Product
+        
         const updateResult = await collection.updateOne(
             { _id: existingRecording._id },
             { $set: { audioUrl: audioUrl, updatedAt: now } }
         );
 
         if (updateResult.matchedCount > 0) {
-            // Dacă un document a fost găsit și actualizat, îl preluăm
+            
             finalRecording = await collection.findOne({ _id: existingRecording._id });
         } else {
             console.warn(`REPOSITORY WARNING (upsertUserRecording): matchedCount este 0 pentru ID ${existingRecording._id.toHexString()} la actualizare. Poate a fost șters recent.`);
         }
     } else {
         console.log(`REPOSITORY DEBUG (upsertUserRecording): Nu s-a găsit înregistrare existentă. Se creează una nouă.`);
-        // Dacă nu există, creează o nouă înregistrare
+        
         const newRecording: Omit<UserRecording, 'id'> = {
             userId,
             lessonId,
@@ -90,7 +86,7 @@ export const upsertUserRecording = async (
             updatedAt: now,
         };
         const insertResult = await collection.insertOne(newRecording as OptionalId<UserRecording>);
-        // findOne după insert este în general sigur că va găsi documentul
+        
         finalRecording = await collection.findOne({ _id: insertResult.insertedId });
     }
 
@@ -105,10 +101,10 @@ export const upsertUserRecording = async (
 
 
 /**
- * Găsește toate înregistrările unui utilizator pentru o anumită lecție.
- * @param userId - ID-ul utilizatorului.
- * @param lessonId - ID-ul lecției.
- * @returns Un array de înregistrări ale utilizatorului pentru acea lecție.
+
+ * @param userId 
+ * @param lessonId 
+ * @returns 
  */
 export const getUserRecordingsByLessonAndUser = async (userId: string, lessonId: string): Promise<UserRecording[]> => {
     const collection = getUserRecordingsCollection();
@@ -116,8 +112,7 @@ export const getUserRecordingsByLessonAndUser = async (userId: string, lessonId:
     
     
 
-    // Nota: userId poate fi un string simplu (ex. de la Firebase Auth), nu neapărat un ObjectId.
-    // Presupunem că `userId` este stocat ca string în baza de date.
+    
     const recordings = await collection.find({ userId: userId, lessonId: lessonId }).sort({ createdAt: -1 }).toArray();
     console.log(`REPOSITORY DEBUG (getUserRecordingsByLessonAndUser): Am găsit ${recordings.length} înregistrări.`);
     
@@ -125,21 +120,15 @@ export const getUserRecordingsByLessonAndUser = async (userId: string, lessonId:
 };
 
 /**
- * Găsește toate înregistrările unui utilizator.
- * @param userId - ID-ul utilizatorului.
- * @returns Un array de înregistrări ale utilizatorului.
+ 
+ * @param userId 
+ * @returns 
  */
 export const getUserRecordingsByUserId = async (userId: string): Promise<UserRecording[]> => {
     const collection = getUserRecordingsCollection();
     console.log(`REPOSITORY DEBUG (getUserRecordingsByUserId): Caut înregistrări pentru userId: ${userId}`);
     
-    // Nota: userId poate fi un string simplu (ex. de la Firebase Auth), nu neapărat un ObjectId.
-    // Presupunem că `userId` este stocat ca string în baza de date.
-    // Nu mai este necesară validarea ObjectId pentru userId aici, dacă este un string arbitrar.
-    // if (!ObjectId.isValid(userId)) {
-    //     console.error(`REPOSITORY ERROR (getUserRecordingsByUserId): userId "${userId}" nu este un ObjectId valid.`);
-    //     return [];
-    // }
+    
 
     const recordings = await collection.find({ userId: userId }).sort({ createdAt: -1 }).toArray();
     console.log(`REPOSITORY DEBUG (getUserRecordingsByUserId): Am găsit ${recordings.length} înregistrări.`);
@@ -148,9 +137,8 @@ export const getUserRecordingsByUserId = async (userId: string): Promise<UserRec
 };
 
 /**
- * Șterge o înregistrare a utilizatorului după ID.
- * @param recordingId - ID-ul înregistrării de șters.
- * @returns True dacă înregistrarea a fost ștearsă, false altfel.
+ * @param recordingId 
+ * @returns 
  */
 export const deleteUserRecordingById = async (recordingId: string): Promise<boolean> => {
     const collection = getUserRecordingsCollection();

@@ -2,10 +2,10 @@
 
 import { Lesson } from "../../models/interfaces/lesson";
 import * as lessonRepository from "../repositories/lessonRepository";
-import { getQuizById } from "../repositories/quizRepository"; // <-- NOU: Importă funcția pentru a prelua quiz-uri
+import { getQuizById } from "../repositories/quizRepository"; 
 
 export const createLessonService = async (
-    lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes'> // 'quizIds' poate fi inclus aici dacă e trimis de la form, dar va fi de obicei gol la creare
+    lessonData: Omit<Lesson, 'id' | 'createdAt' | 'updatedAt' | 'quizzes'>
 ): Promise<Lesson> => {
     try {
         const newLesson = await lessonRepository.createLesson(lessonData);
@@ -19,8 +19,6 @@ export const createLessonService = async (
 export const getLessonListService = async (): Promise<Lesson[]> => {
     try {
         const lessons = await lessonRepository.getLessonList();
-        // Aici am putea adăuga popularea pentru fiecare lecție din listă, dacă e necesar
-        // Dar pentru început, e suficient să populăm doar la getLessonById
         return lessons;
     } catch (error) {
         console.error("SERVICE ERROR: Eroare la obținerea listei de lecții:", error);
@@ -36,27 +34,26 @@ export const getLessonByIdService = async (id: string): Promise<Lesson | null> =
             throw new Error(`Lecția cu ID ${id} nu a fost găsită.`);
         }
 
-        // --- NOU: Logica de populare a quiz-ului ---
+        
         if (lesson.quizIds && lesson.quizIds.length > 0) {
-            const quizIdToPopulate = lesson.quizIds[0]; // Luăm primul (și singurul, prin convenție) ID
+            const quizIdToPopulate = lesson.quizIds[0]; 
             try {
-                const quiz = await getQuizById(quizIdToPopulate); // Preia quiz-ul complet
+                const quiz = await getQuizById(quizIdToPopulate); 
                 if (quiz) {
-                    lesson.quizzes = [quiz]; // Adaugă quiz-ul populat în array-ul 'quizzes'
+                    lesson.quizzes = [quiz]; 
                 } else {
                     console.warn(`SERVICE WARNING: Quiz-ul cu ID ${quizIdToPopulate} asociat lecției ${id} nu a fost găsit.`);
-                    lesson.quizzes = []; // Asigură-te că este un array gol dacă nu se găsește
+                    lesson.quizzes = []; 
                 }
             } catch (quizError) {
                 console.error(`SERVICE ERROR: Eroare la popularea quiz-ului ${quizIdToPopulate} pentru lecția ${id}:`, quizError);
-                // Decide dacă arunci eroarea sau doar loghezi și trimiți lecția fără quiz-ul populat
-                // Pentru robustete, vom trimite lecția, dar fără quiz-ul populat în cazul unei erori la quiz.
+                
                 lesson.quizzes = [];
             }
         } else {
-            lesson.quizzes = []; // Asigură-te că e un array gol dacă nu există quizIds
+            lesson.quizzes = []; 
         }
-        // --- SFÂRȘIT NOU ---
+        
 
         return lesson;
     } catch (error) {
@@ -67,11 +64,10 @@ export const getLessonByIdService = async (id: string): Promise<Lesson | null> =
 
 export const updateLessonService = async (
     id: string,
-    partialLesson: Partial<Omit<Lesson, 'quizzes'>> // <--- ATENȚIE AICI! 'quizIds' nu e omis!
+    partialLesson: Partial<Omit<Lesson, 'quizzes'>> 
 ): Promise<Lesson | null> => {
     try {
-        // Asigură-te că 'quizIds' poate fi trimis aici.
-        // partialLesson poate include acum 'quizIds'
+        
         const updatedLesson = await lessonRepository.updateLesson(id, partialLesson);
         if (!updatedLesson) {
             throw new Error(`Lecția cu ID ${id} nu a fost găsită sau nu a putut fi actualizată.`);

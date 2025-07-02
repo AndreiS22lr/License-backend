@@ -6,13 +6,12 @@ import { Lesson } from "../../models/interfaces/lesson";
 import * as lessonRepository from "../repositories/lessonRepository";
 
 /**
- * Salvează sau actualizează o înregistrare a utilizatorului pentru o lecție specifică.
- * Aceasta va asigura că există o singură înregistrare per utilizator per lecție.
- * @param userId - ID-ul utilizatorului care face înregistrarea.
- * @param lessonId - ID-ul lecției la care se referă înregistrarea.
- * @param audioUrl - Calea URL către fișierul audio încărcat.
- * @returns Înregistrarea utilizatorului creată sau actualizată.
- * @throws Eroare dacă lecția sau utilizatorul nu sunt găsite.
+ 
+ * @param userId 
+ * @param lessonId 
+ * @param audioUrl 
+ * @returns 
+ * @throws 
  */
 export const saveUserRecordingService = async (
     userId: string,
@@ -28,7 +27,7 @@ export const saveUserRecordingService = async (
     }
 
     try {
-        // NOU: Folosim upsertUserRecording din repository
+        
         const savedOrUpdatedRecording = await userRecordingRepository.upsertUserRecording(userId, lessonId, audioUrl);
         console.log(`SERVICE DEBUG (saveUserRecordingService): Înregistrare utilizator salvată/actualizată cu succes: ${savedOrUpdatedRecording.id}`);
         return savedOrUpdatedRecording;
@@ -39,9 +38,9 @@ export const saveUserRecordingService = async (
 };
 
 /**
- * Obține toate înregistrările unui utilizator, inclusiv detaliile lecțiilor.
- * @param userId - ID-ul utilizatorului.
- * @returns Un array de înregistrări ale utilizatorului, cu detalii despre lecții.
+ 
+ * @param userId 
+ * @returns 
  */
 export const getUserRecordingsByUserService = async (userId: string): Promise<(UserRecording & { lessonDetails?: Lesson })[]> => {
     console.log(`SERVICE DEBUG (getUserRecordingsByUserService): Caut înregistrări pentru userId: ${userId}`);
@@ -64,10 +63,10 @@ export const getUserRecordingsByUserService = async (userId: string): Promise<(U
 };
 
 /**
- * Obține toate înregistrările unui utilizator pentru o lecție specifică.
- * @param userId - ID-ul utilizatorului.
- * @param lessonId - ID-ul lecției.
- * @returns Un array de înregistrări ale utilizatorului pentru acea lecție, cu detalii despre lecție.
+ 
+ * @param userId 
+ * @param lessonId 
+ * @returns 
  */
 export const getUserRecordingsByLessonAndUserService = async (userId: string, lessonId: string): Promise<(UserRecording & { lessonDetails?: Lesson })[]> => {
     console.log(`SERVICE DEBUG (getUserRecordingsByLessonAndUserService): Caut înregistrări pentru userId: ${userId} și lessonId: ${lessonId}`);
@@ -90,11 +89,11 @@ export const getUserRecordingsByLessonAndUserService = async (userId: string, le
 
 
 /**
- * Șterge o înregistrare a utilizatorului.
- * @param recordingId - ID-ul înregistrării de șters.
- * @param userId - ID-ul utilizatorului care încearcă să șteargă (pentru verificare de securitate).
- * @returns True dacă înregistrarea a fost ștearsă, false altfel.
- * @throws Eroare dacă înregistrarea nu există sau utilizatorul nu este autorizat.
+ 
+ * @param recordingId 
+ * @param userId 
+ * @returns 
+ * @throws 
  */
 export const deleteUserRecordingService = async (recordingId: string, userId: string): Promise<boolean> => {
     console.log(`SERVICE DEBUG (deleteUserRecordingService): Începe ștergerea înregistrării ${recordingId} de către utilizatorul ${userId}.`);
@@ -121,10 +120,9 @@ export const deleteUserRecordingService = async (recordingId: string, userId: st
 };
 
 /**
- * Obține o singură înregistrare a utilizatorului după ID.
- * Utila pentru a prelua detalii specifice sau pentru verificări interne.
- * @param recordingId - ID-ul înregistrării.
- * @returns Obiectul UserRecording sau null dacă nu este găsit.
+ 
+ * @param recordingId 
+ * @returns 
  */
 export const getUserRecordingByIdService = async (recordingId: string): Promise<UserRecording | null> => {
     console.log(`SERVICE DEBUG (getUserRecordingByIdService): Caut înregistrarea cu ID: ${recordingId}`);

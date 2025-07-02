@@ -1,26 +1,23 @@
 // src/domain/repositories/userCompletedQuizRepository.ts
 
 import { getDb } from "../../core/database/mongoClient";
-import { UserCompletedQuiz } from "../../models/interfaces/quizResult"; // Importăm noua interfață
+import { UserCompletedQuiz } from "../../models/interfaces/quizResult"; 
 import { Collection, ObjectId, OptionalId } from "mongodb";
 
-// Funcție ajutătoare pentru a obține colecția 'userCompletedQuizzes'
+
 const getUserCompletedQuizzesCollection = (): Collection<UserCompletedQuiz> => {
-    // Asigură-te că numele colecției este consistent (ex: 'userCompletedQuizzes')
+    
     return getDb().collection<UserCompletedQuiz>("userCompletedQuizzes");
 };
 
-/**
- * Înregistrează un quiz ca fiind completat cu succes de către un utilizator.
- * Va evita duplicarea înregistrărilor pentru același utilizator și quiz.
- */
+
 export const markQuizAsCompleted = async (
     userId: string,
-    quizId: string // Am eliminat quizTitle de aici
+    quizId: string 
 ): Promise<UserCompletedQuiz | null> => {
     const collection = getUserCompletedQuizzesCollection();
     let quizObjectId: ObjectId;
-    // userObjectId nu este necesar aici dacă userId este un string simplu
+    
 
     try {
         quizObjectId = new ObjectId(quizId);
@@ -29,7 +26,7 @@ export const markQuizAsCompleted = async (
         return null;
     }
 
-    // Verificăm dacă utilizatorul a completat deja acest quiz
+    
     const existingCompletion = await collection.findOne({ userId: userId, quizId: quizId });
 
     if (existingCompletion) {
@@ -37,7 +34,7 @@ export const markQuizAsCompleted = async (
         return { ...existingCompletion, id: existingCompletion._id.toHexString() };
     }
 
-    // Dacă nu există, creăm o nouă înregistrare
+    
     const newCompletion: Omit<UserCompletedQuiz, 'id'> = {
         userId: userId,
         quizId: quizId,
@@ -53,9 +50,7 @@ export const markQuizAsCompleted = async (
     }
 };
 
-/**
- * Preia toate quiz-urile completate de un anumit utilizator.
- */
+
 export const getCompletedQuizzesForUser = async (userId: string): Promise<UserCompletedQuiz[]> => {
     const collection = getUserCompletedQuizzesCollection();
     const completions = await collection.find({ userId: userId }).toArray();
@@ -65,9 +60,7 @@ export const getCompletedQuizzesForUser = async (userId: string): Promise<UserCo
     }));
 };
 
-/**
- * Preia starea de completare pentru un quiz specific pentru un utilizator.
- */
+
 export const getCompletionStatusForQuiz = async (userId: string, quizId: string): Promise<UserCompletedQuiz | null> => {
     const collection = getUserCompletedQuizzesCollection();
     try {
